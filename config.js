@@ -7,7 +7,7 @@
 window.BUTIK_CONFIG = {
 
   // VERİTABANI BAĞLANTISI
-  SUPABASE_URL: "https://aynnohvdurstvuamkdpo.supabase.co/rest/v1/",
+  SUPABASE_URL: "https://aynnohvdurstvuamkdpo.supabase.co",
   SUPABASE_ANON_KEY: "sb_publishable_eSY5WbDFEA_c02SoGM0AKA_ziDsJJk6",
 
   // MAĞAZA KİMLİĞİ
