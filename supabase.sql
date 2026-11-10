@@ -1,13 +1,14 @@
 
--- =========================================
--- BUTİK ŞENAY - GÜVENLİ VERİTABANI
--- =========================================
+-- =====================================================
+-- BUTİK ŞENAY
+-- TAM VERİTABANI VE GÜVENLİK SİSTEMİ
+-- =====================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- =========================================
--- 1. YÖNETİCİ KONTROLÜ
--- =========================================
+-- =====================================================
+-- 1. MÜŞTERİ VE YÖNETİCİ PROFİLLERİ
+-- =====================================================
 
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -50,16 +51,17 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS customer_profile_trigger ON auth.users;
+DROP TRIGGER IF EXISTS customer_profile_trigger
+ON auth.users;
 
 CREATE TRIGGER customer_profile_trigger
 AFTER INSERT ON auth.users
 FOR EACH ROW
 EXECUTE FUNCTION public.create_customer_profile();
 
--- =========================================
+-- =====================================================
 -- 2. ÜRÜNLER
--- =========================================
+-- =====================================================
 
 CREATE TABLE IF NOT EXISTS public.products (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -73,9 +75,9 @@ CREATE TABLE IF NOT EXISTS public.products (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- =========================================
+-- =====================================================
 -- 3. SİPARİŞLER
--- =========================================
+-- =====================================================
 
 CREATE TABLE IF NOT EXISTS public.orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -97,9 +99,9 @@ CREATE TABLE IF NOT EXISTS public.order_items (
   quantity INTEGER NOT NULL CHECK (quantity > 0)
 );
 
--- =========================================
--- 4. MESAJLAR
--- =========================================
+-- =====================================================
+-- 4. İLETİŞİM MESAJLARI
+-- =====================================================
 
 CREATE TABLE IF NOT EXISTS public.messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -110,9 +112,9 @@ CREATE TABLE IF NOT EXISTS public.messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- =========================================
+-- =====================================================
 -- 5. ÜRÜN YORUMLARI
--- =========================================
+-- =====================================================
 
 CREATE TABLE IF NOT EXISTS public.reviews (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -125,9 +127,9 @@ CREATE TABLE IF NOT EXISTS public.reviews (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- =========================================
+-- =====================================================
 -- 6. ROW LEVEL SECURITY
--- =========================================
+-- =====================================================
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
@@ -145,7 +147,10 @@ CREATE POLICY "Profile owner or admin reads"
 ON public.profiles
 FOR SELECT
 TO authenticated
-USING (id = auth.uid() OR public.is_admin());
+USING (
+  id = auth.uid()
+  OR public.is_admin()
+);
 
 -- ÜRÜNLER
 
@@ -156,7 +161,10 @@ CREATE POLICY "Everyone sees active products"
 ON public.products
 FOR SELECT
 TO anon, authenticated
-USING (active = TRUE OR public.is_admin());
+USING (
+  active = TRUE
+  OR public.is_admin()
+);
 
 DROP POLICY IF EXISTS "Only admin manages products"
 ON public.products;
@@ -242,7 +250,10 @@ CREATE POLICY "Everyone sees approved reviews"
 ON public.reviews
 FOR SELECT
 TO anon, authenticated
-USING (approved = TRUE OR public.is_admin());
+USING (
+  approved = TRUE
+  OR public.is_admin()
+);
 
 DROP POLICY IF EXISTS "Customers submit reviews"
 ON public.reviews;
@@ -268,9 +279,9 @@ TO authenticated
 USING (public.is_admin())
 WITH CHECK (public.is_admin());
 
--- =========================================
--- 7. GÜVENLİ SİPARİŞ FONKSİYONU
--- =========================================
+-- =====================================================
+-- 7. GÜVENLİ SİPARİŞ OLUŞTURMA
+-- =====================================================
 
 CREATE OR REPLACE FUNCTION public.place_order(
   p_name TEXT,
@@ -286,34 +297,52 @@ AS $$
 DECLARE
   v_order_id UUID;
   v_total NUMERIC(10,2) := 0;
-  v_item JSONB;
-  v_product public.products%ROWTYPE;
+  v_product_id UUID;
   v_quantity INTEGER;
+  v_product public.products%ROWTYPE;
 BEGIN
-  IF length(trim(p_name)) NOT BETWEEN 2 AND 100
+
+  IF p_name IS NULL
+     OR length(trim(p_name)) NOT BETWEEN 2 AND 100
+     OR p_phone IS NULL
      OR length(trim(p_phone)) NOT BETWEEN 5 AND 30
-     OR length(trim(p_address)) NOT BETWEEN 5 AND 1000 THEN
+     OR p_address IS NULL
+     OR length(trim(p_address)) NOT BETWEEN 5 AND 1000
+  THEN
     RAISE EXCEPTION 'Sipariş bilgileri geçersiz.';
   END IF;
 
-  IF jsonb_typeof(p_items) <> 'array'
+  IF p_items IS NULL
+     OR jsonb_typeof(p_items) <> 'array'
      OR jsonb_array_length(p_items) = 0
-     OR jsonb_array_length(p_items) > 50 THEN
+     OR jsonb_array_length(p_items) > 50
+  THEN
     RAISE EXCEPTION 'Sepet bilgileri geçersiz.';
   END IF;
 
-  -- Ürünleri kilitle ve stok/fiyatı sunucuda doğrula.
-  FOR v_item IN SELECT value FROM jsonb_array_elements(p_items)
+  -- Ürün adetlerini doğrula ve aynı ürünleri birleştir.
+  FOR v_product_id, v_quantity IN
+    SELECT
+      x.product_id,
+      SUM(x.quantity)::INTEGER
+    FROM jsonb_to_recordset(p_items)
+      AS x(product_id UUID, quantity INTEGER)
+    GROUP BY x.product_id
+    ORDER BY x.product_id
   LOOP
-    v_quantity := (v_item->>'quantity')::INTEGER;
 
-    IF v_quantity <= 0 OR v_quantity > 100 THEN
+    IF v_product_id IS NULL
+       OR v_quantity IS NULL
+       OR v_quantity <= 0
+       OR v_quantity > 100
+    THEN
       RAISE EXCEPTION 'Ürün adedi geçersiz.';
     END IF;
 
-    SELECT * INTO v_product
+    SELECT *
+    INTO v_product
     FROM public.products
-    WHERE id = (v_item->>'product_id')::UUID
+    WHERE id = v_product_id
       AND active = TRUE
     FOR UPDATE;
 
@@ -325,67 +354,114 @@ BEGIN
       RAISE EXCEPTION 'Yetersiz stok: %', v_product.name;
     END IF;
 
-    v_total := v_total + (v_product.price * v_quantity);
+    v_total := v_total + (
+      v_product.price * v_quantity
+    );
+
   END LOOP;
 
-  INSERT INTO public.orders(
-    user_id, customer_name, phone, address, total
+  IF v_total <= 0 THEN
+    RAISE EXCEPTION 'Sipariş toplamı geçersiz.';
+  END IF;
+
+  INSERT INTO public.orders (
+    user_id,
+    customer_name,
+    phone,
+    address,
+    total
   )
   VALUES (
-    auth.uid(), trim(p_name), trim(p_phone),
-    trim(p_address), v_total
+    auth.uid(),
+    trim(p_name),
+    trim(p_phone),
+    trim(p_address),
+    v_total
   )
   RETURNING id INTO v_order_id;
 
-  FOR v_item IN SELECT value FROM jsonb_array_elements(p_items)
+  -- Sipariş ürünlerini kaydet ve stokları düşür.
+  FOR v_product_id, v_quantity IN
+    SELECT
+      x.product_id,
+      SUM(x.quantity)::INTEGER
+    FROM jsonb_to_recordset(p_items)
+      AS x(product_id UUID, quantity INTEGER)
+    GROUP BY x.product_id
+    ORDER BY x.product_id
   LOOP
-    v_quantity := (v_item->>'quantity')::INTEGER;
 
-    SELECT * INTO v_product
+    SELECT *
+    INTO v_product
     FROM public.products
-    WHERE id = (v_item->>'product_id')::UUID
+    WHERE id = v_product_id
+      AND active = TRUE
     FOR UPDATE;
 
-    INSERT INTO public.order_items(
-      order_id, product_id, product_name,
-      unit_price, quantity
+    INSERT INTO public.order_items (
+      order_id,
+      product_id,
+      product_name,
+      unit_price,
+      quantity
     )
     VALUES (
-      v_order_id, v_product.id, v_product.name,
-      v_product.price, v_quantity
+      v_order_id,
+      v_product.id,
+      v_product.name,
+      v_product.price,
+      v_quantity
     );
 
     UPDATE public.products
     SET stock = stock - v_quantity
-    WHERE id = v_product.id;
+    WHERE id = v_product_id;
+
   END LOOP;
 
   RETURN v_order_id;
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.place_order(TEXT,TEXT,TEXT,JSONB)
+REVOKE ALL ON FUNCTION
+public.place_order(TEXT,TEXT,TEXT,JSONB)
 FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION public.place_order(TEXT,TEXT,TEXT,JSONB)
+GRANT EXECUTE ON FUNCTION
+public.place_order(TEXT,TEXT,TEXT,JSONB)
 TO anon, authenticated;
 
--- =========================================
+-- =====================================================
 -- 8. FOTOĞRAF DEPOSU
--- =========================================
+-- =====================================================
 
-INSERT INTO storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
+INSERT INTO storage.buckets (
+  id,
+  name,
+  public,
+  file_size_limit,
+  allowed_mime_types
+)
 VALUES (
   'product-images',
   'product-images',
   TRUE,
   5242880,
-  ARRAY['image/jpeg','image/png','image/webp']
+  ARRAY[
+    'image/jpeg',
+    'image/png',
+    'image/webp'
+  ]
 )
-ON CONFLICT (id) DO UPDATE SET
+ON CONFLICT (id)
+DO UPDATE SET
   public = TRUE,
   file_size_limit = 5242880,
-  allowed_mime_types = ARRAY['image/jpeg','image/png','image/webp'];
+  allowed_mime_types = ARRAY[
+    'image/jpeg',
+    'image/png',
+    'image/webp'
+  ];
 
 DROP POLICY IF EXISTS "Public reads product images"
 ON storage.objects;
@@ -394,7 +470,9 @@ CREATE POLICY "Public reads product images"
 ON storage.objects
 FOR SELECT
 TO anon, authenticated
-USING (bucket_id = 'product-images');
+USING (
+  bucket_id = 'product-images'
+);
 
 DROP POLICY IF EXISTS "Admin uploads product images"
 ON storage.objects;
@@ -436,22 +514,36 @@ USING (
   AND public.is_admin()
 );
 
--- =========================================
+-- =====================================================
 -- 9. TABLO İZİNLERİ
--- =========================================
+-- =====================================================
 
-GRANT SELECT ON public.products TO anon, authenticated;
-GRANT INSERT, UPDATE, DELETE ON public.products TO authenticated;
+GRANT SELECT ON public.products
+TO anon, authenticated;
 
-GRANT SELECT ON public.profiles TO authenticated;
+GRANT INSERT, UPDATE, DELETE
+ON public.products
+TO authenticated;
 
-GRANT SELECT, UPDATE ON public.orders TO authenticated;
-GRANT SELECT ON public.order_items TO authenticated;
+GRANT SELECT ON public.profiles
+TO authenticated;
 
-GRANT SELECT, INSERT, DELETE ON public.messages TO anon, authenticated;
+GRANT SELECT, UPDATE
+ON public.orders
+TO authenticated;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.reviews TO anon, authenticated;
+GRANT SELECT
+ON public.order_items
+TO authenticated;
 
--- =========================================
--- KURULUM SONU
--- =========================================
+GRANT SELECT, INSERT, DELETE
+ON public.messages
+TO anon, authenticated;
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON public.reviews
+TO anon, authenticated;
+
+-- =====================================================
+-- BUTİK ŞENAY VERİTABANI KODU SONU
+-- =====================================================
