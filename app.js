@@ -1,6 +1,6 @@
 
 /* =========================================
-   BUTİK ŞENAY - MAĞAZA SİSTEMİ
+   BUTİK ŞENAY - TAM MAĞAZA SİSTEMİ
    ========================================= */
 
 const config = window.BUTIK_CONFIG || {};
@@ -47,8 +47,6 @@ function notify(message) {
   if (!toast) {
     toast = document.createElement("div");
     toast.id = "toast";
-    toast.style.cssText =
-      "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#a20f58;color:white;padding:13px 20px;border-radius:12px;z-index:99999;max-width:90%;text-align:center";
     document.body.appendChild(toast);
   }
 
@@ -107,11 +105,41 @@ const demoProducts = [
   }
 ];
 
-/* ÜRÜNLER */
+/* KATEGORİLER */
+
+function renderCategories() {
+  const container = $("categoryList");
+  if (!container) return;
+
+  const categories = [...new Set(
+    products.map(product => product.category).filter(Boolean)
+  )];
+
+  container.innerHTML = `
+    <button type="button" data-category="">Tüm Ürünler</button>
+    ${categories.map(item => `
+      <button type="button" data-category="${escapeHTML(item)}">
+        ${escapeHTML(item)}
+      </button>
+    `).join("")}
+  `;
+}
+
+$("categoryList")?.addEventListener("click", event => {
+  const button = event.target.closest("[data-category]");
+  if (!button) return;
+
+  activeCategory = button.dataset.category;
+  renderCategories();
+  renderProducts();
+});
+
+/* ÜRÜNLERİ YÜKLE */
 
 async function loadProducts() {
   if (!db) {
     products = demoProducts;
+    renderCategories();
     renderProducts();
     updateReviewProducts();
     return;
@@ -124,16 +152,20 @@ async function loadProducts() {
 
   if (error) {
     console.error(error);
-    notify("Ürünler yüklenemedi.");
+    notify("Ürünler yüklenemedi: " + error.message);
     return;
   }
 
   products = data || [];
+
+  renderCategories();
   renderProducts();
   updateReviewProducts();
 
   if (isAdmin) renderAdminProducts();
 }
+
+/* ÜRÜNLERİ GÖSTER */
 
 function renderProducts() {
   const search = ($("productSearch")?.value || "")
@@ -157,20 +189,28 @@ function renderProducts() {
 
         return `
           <article class="product">
-            <img src="${escapeHTML(product.image || "")}"
-                 alt="${escapeHTML(product.name)}"
-                 loading="lazy">
+            <img
+              src="${escapeHTML(product.image || "")}"
+              alt="${escapeHTML(product.name)}"
+              loading="lazy"
+            >
 
             <div class="product-info">
               <h3>${escapeHTML(product.name)}</h3>
               <p>${escapeHTML(product.description || "")}</p>
               <div class="price">${money(product.price)}</div>
-              <p>${available
-                ? "Stok: " + Number(product.stock)
-                : "🔴 Stok Tükendi"}</p>
 
-              <button data-add="${escapeHTML(product.id)}"
-                ${available ? "" : "disabled"}>
+              <p>
+                ${available
+                  ? "Stok: " + Number(product.stock)
+                  : "🔴 Stok Tükendi"}
+              </p>
+
+              <button
+                type="button"
+                data-add="${escapeHTML(product.id)}"
+                ${available ? "" : "disabled"}
+              >
                 ${available ? "Sepete Ekle" : "Tükendi"}
               </button>
             </div>
@@ -182,13 +222,6 @@ function renderProducts() {
 
 $("productSearch")?.addEventListener("input", renderProducts);
 
-document.querySelectorAll("[data-category]").forEach(button => {
-  button.addEventListener("click", () => {
-    activeCategory = button.dataset.category;
-    renderProducts();
-  });
-});
-
 /* SEPET */
 
 function addToCart(id) {
@@ -197,7 +230,7 @@ function addToCart(id) {
   );
 
   if (!product || Number(product.stock) <= 0) {
-    return notify("Bu ürün stokta bulunmuyor.");
+    return notify("Ürün stokta bulunmuyor.");
   }
 
   const quantity = cart.filter(
@@ -221,7 +254,7 @@ function renderCart() {
         <div class="cart-item">
           <b>${escapeHTML(product.name)}</b>
           <p>${money(product.price)}</p>
-          <button data-remove="${index}">Sil</button>
+          <button type="button" data-remove="${index}">Sil</button>
         </div>
       `).join("")
     : "<p>Sepetiniz boş.</p>";
@@ -250,7 +283,7 @@ $("cartBtn")?.addEventListener("click", () => {
   openModal("cartModal");
 });
 
-/* HESAP VE OTURUM */
+/* HESAP */
 
 $("accountBtn")?.addEventListener("click", () => {
   if (isAdmin) {
@@ -341,8 +374,6 @@ async function checkAccount() {
   $("logoutBtn").hidden = !currentUser;
 }
 
-/* YÖNETİCİ PANELİ */
-
 $("adminBtn")?.addEventListener("click", () => {
   if (!isAdmin) return notify("Yönetici yetkisi gerekli.");
 
@@ -386,7 +417,7 @@ async function uploadProductImage(file) {
   return data.publicUrl;
 }
 
-/* ÜRÜN EKLEME */
+/* ÜRÜN EKLE */
 
 $("productForm")?.addEventListener("submit", async event => {
   event.preventDefault();
@@ -405,7 +436,7 @@ $("productForm")?.addEventListener("submit", async event => {
   const file = $("productImage").files[0];
 
   if (!name || !category || !description || !file) {
-    return notify("Tüm ürün bilgilerini ve fotoğrafı girin.");
+    return notify("Ürün bilgilerini ve fotoğrafı doldurun.");
   }
 
   if (!Number.isFinite(price) || price <= 0 ||
@@ -421,8 +452,13 @@ $("productForm")?.addEventListener("submit", async event => {
     const image = await uploadProductImage(file);
 
     const { error } = await db.from("products").insert({
-      name, price, category, stock, description,
-      image, active: true
+      name,
+      price,
+      category,
+      stock,
+      description,
+      image,
+      active: true
     });
 
     if (error) throw error;
@@ -430,6 +466,7 @@ $("productForm")?.addEventListener("submit", async event => {
     $("productForm").reset();
     await loadProducts();
     await loadAdminData();
+
     notify("Ürün başarıyla eklendi.");
 
   } catch (error) {
@@ -443,7 +480,7 @@ $("productForm")?.addEventListener("submit", async event => {
   }
 });
 
-/* ÜRÜN YÖNETİMİ */
+/* YÖNETİCİ ÜRÜNLERİ */
 
 function renderAdminProducts() {
   $("adminProductList").innerHTML = products.length
@@ -451,8 +488,12 @@ function renderAdminProducts() {
         <div class="admin-product">
           <b>${escapeHTML(product.name)}</b>
           <p>${money(product.price)} · Stok: ${product.stock}</p>
-          <button data-stock="${escapeHTML(product.id)}">Stok Güncelle</button>
-          <button data-delete="${escapeHTML(product.id)}">Ürünü Sil</button>
+          <button type="button" data-stock="${escapeHTML(product.id)}">
+            Stok Güncelle
+          </button>
+          <button type="button" data-delete="${escapeHTML(product.id)}">
+            Ürünü Sil
+          </button>
         </div>
       `).join("")
     : "<p>Henüz ürün yok.</p>";
@@ -544,6 +585,7 @@ $("checkoutForm")?.addEventListener("submit", async event => {
     cart = [];
     renderCart();
     $("checkoutForm").reset();
+
     notify("Siparişiniz alındı. Sipariş numarası: " + data);
     await loadProducts();
 
@@ -556,7 +598,7 @@ $("checkoutForm")?.addEventListener("submit", async event => {
   }
 });
 
-/* İLETİŞİM MESAJI */
+/* İLETİŞİM */
 
 $("contactForm")?.addEventListener("submit", async event => {
   event.preventDefault();
@@ -582,7 +624,7 @@ $("contactForm")?.addEventListener("submit", async event => {
   notify("Mesajınız gönderildi.");
 });
 
-/* YORUM SİSTEMİ */
+/* YORUMLAR */
 
 function updateReviewProducts() {
   const select = $("reviewProduct");
@@ -602,7 +644,7 @@ $("reviewForm")?.addEventListener("submit", async event => {
 
   if (!db) {
     $("reviewStatus").textContent =
-      "Yorum sistemi henüz veritabanına bağlanmadı.";
+      "Yorum sistemi henüz bağlanmadı.";
     return;
   }
 
@@ -612,8 +654,8 @@ $("reviewForm")?.addEventListener("submit", async event => {
   const comment = $("reviewText").value.trim();
 
   if (!customerName || !productId || !comment ||
-      rating < 1 || rating > 5) {
-    $("reviewStatus").textContent = "Lütfen tüm alanları doldurun.";
+      !Number.isInteger(rating) || rating < 1 || rating > 5) {
+    $("reviewStatus").textContent = "Tüm alanları kontrol edin.";
     return;
   }
 
@@ -642,7 +684,7 @@ $("reviewForm")?.addEventListener("submit", async event => {
 async function loadReviews() {
   if (!db) {
     $("reviewList").innerHTML =
-      "<p>Yorumlar, mağaza veritabanı bağlandıktan sonra görüntülenecek.</p>";
+      "<p>Yorumlar veritabanı bağlandıktan sonra görüntülenecek.</p>";
     return;
   }
 
@@ -662,7 +704,10 @@ async function loadReviews() {
     ? data.map(review => `
         <article class="review-card">
           <h3>${escapeHTML(review.customer_name)}</h3>
-          <p class="review-stars">${"★".repeat(Number(review.rating))}${"☆".repeat(5 - Number(review.rating))}</p>
+          <p class="review-stars">
+            ${"★".repeat(Number(review.rating))}
+            ${"☆".repeat(5 - Number(review.rating))}
+          </p>
           <small>${escapeHTML(review.products?.name || "Ürün")}</small>
           <p>${escapeHTML(review.comment)}</p>
         </article>
@@ -737,11 +782,13 @@ async function loadAdminReviews() {
           <p>${escapeHTML(review.comment)}</p>
           <p>Durum: ${review.approved ? "Onaylandı" : "Onay bekliyor"}</p>
           ${review.approved ? "" : `
-            <button data-approve-review="${escapeHTML(review.id)}">
+            <button type="button"
+              data-approve-review="${escapeHTML(review.id)}">
               Yorumu Onayla
             </button>
           `}
-          <button data-delete-review="${escapeHTML(review.id)}">
+          <button type="button"
+            data-delete-review="${escapeHTML(review.id)}">
             Yorumu Sil
           </button>
         </div>
@@ -801,7 +848,7 @@ function loadContactLinks() {
   `;
 }
 
-/* AUTH TAKİBİ */
+/* OTURUM TAKİBİ */
 
 if (db) {
   db.auth.onAuthStateChange(() => {
