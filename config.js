@@ -1,47 +1,66 @@
 
-/* ==================================
+/* =========================================
    BUTİK ŞENAY
-   MAĞAZA BAĞLANTI AYARLARI
-================================== */
+   MAĞAZA AYARLARI
+   ========================================= */
 
 window.BUTIK_CONFIG = {
 
-  // SUPABASE PROJE BİLGİLERİ
+  // VERİTABANI BAĞLANTISI
   SUPABASE_URL: "",
-
   SUPABASE_ANON_KEY: "",
 
-  // INSTAGRAM HESABI
-  INSTAGRAM_USERNAME: "",
-
-  // WHATSAPP NUMARASI
-  // Örnek: 905551112233
-  WHATSAPP_NUMBER: "",
-
-  // MAĞAZA BİLGİLERİ
+  // MAĞAZA KİMLİĞİ
   STORE_NAME: "BUTİK ŞENAY",
+  STORE_DESCRIPTION: "Şıklığın en güzel hali.",
+  STORE_TAGLINE: "Zarafetin yeni adresi",
 
-  STORE_DESCRIPTION:
-    "Şıklığın en güzel hali.",
+  // İLETİŞİM
+  INSTAGRAM_USERNAME: "",
+  WHATSAPP_NUMBER: "",
+  CONTACT_EMAIL: "",
 
+  // PARA BİRİMİ
   STORE_CURRENCY: "TRY",
+  CURRENCY_LOCALE: "tr-TR",
 
-  // MAĞAZA TASARIMI
+  // TASARIM RENKLERİ
   PRIMARY_COLOR: "#a20f58",
-
-  SECONDARY_COLOR: "#d9b75b",
-
+  DARK_COLOR: "#71083d",
+  SECONDARY_COLOR: "#c6a04b",
   BACKGROUND_COLOR: "#ffffff",
+  LIGHT_COLOR: "#fff0f6",
 
-  // MAĞAZA DURUMU
+  // MAĞAZA AYARLARI
   STORE_ACTIVE: true,
-
-  // ÜYELİK
   GUEST_CHECKOUT: true,
-
   CUSTOMER_REGISTRATION: true,
 
-  // YÖNETİM
-  SINGLE_ADMIN: true
+  // GÜVENLİK
+  SINGLE_ADMIN: true,
+  ADMIN_ROLE: "admin",
+  CUSTOMER_ROLE: "customer",
+
+  // ÜRÜN AYARLARI
+  MAX_IMAGE_SIZE_MB: 5,
+  ALLOWED_IMAGE_TYPES: [
+    "image/jpeg",
+    "image/png",
+    "image/webp"
+  ],
+
+  // SİPARİŞ AYARLARI
+  ORDER_STATUSES: [
+    "Yeni",
+    "Hazırlanıyor",
+    "Kargoya Verildi",
+    "Tamamlandı",
+    "İptal Edildi"
+  ],
+
+  // YORUM AYARLARI
+  REVIEW_MIN_RATING: 1,
+  REVIEW_MAX_RATING: 5,
+  REVIEW_REQUIRES_APPROVAL: true
 
 };
