@@ -20,7 +20,7 @@ let products = [];
 let cart = [];
 let currentUser = null;
 let isAdmin = false;
-let category = "";
+let activeCategory = "";
 let uploading = false;
 
 const $ = id => document.getElementById(id);
@@ -42,14 +42,22 @@ function escapeHTML(value) {
 }
 
 function notify(message) {
-  const el = $("toast");
-  if (!el) return;
+  let toast = $("toast");
 
-  el.textContent = message;
-  el.style.display = "block";
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "toast";
+    toast.style.cssText =
+      "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#a20f58;color:white;padding:13px 20px;border-radius:12px;z-index:99999;max-width:90%;text-align:center";
+    document.body.appendChild(toast);
+  }
 
-  setTimeout(() => {
-    el.style.display = "none";
+  toast.textContent = message;
+  toast.style.display = "block";
+
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => {
+    toast.style.display = "none";
   }, 3500);
 }
 
@@ -61,9 +69,9 @@ function closeModal(id) {
   $(id)?.classList.remove("show");
 }
 
-document.querySelectorAll("[data-close]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    closeModal(btn.dataset.close);
+document.querySelectorAll("[data-close]").forEach(button => {
+  button.addEventListener("click", () => {
+    closeModal(button.dataset.close);
   });
 });
 
@@ -91,7 +99,7 @@ const demoProducts = [
   {
     id: "demo3",
     name: "Kadın Bluz",
-    category: "Bluz",
+    category: "Üst Giyim",
     price: 499,
     stock: 0,
     description: "Rahat ve şık tasarım.",
@@ -99,12 +107,13 @@ const demoProducts = [
   }
 ];
 
-/* ÜRÜNLERİ YÜKLE */
+/* ÜRÜNLER */
 
 async function loadProducts() {
   if (!db) {
     products = demoProducts;
     renderProducts();
+    updateReviewProducts();
     return;
   }
 
@@ -121,22 +130,21 @@ async function loadProducts() {
 
   products = data || [];
   renderProducts();
+  updateReviewProducts();
 
   if (isAdmin) renderAdminProducts();
 }
 
-/* ÜRÜN GÖRÜNTÜLEME */
-
 function renderProducts() {
-  const search = $("searchInput").value
+  const search = ($("productSearch")?.value || "")
     .toLocaleLowerCase("tr");
 
   const filtered = products.filter(product => {
     const matchesCategory =
-      !category || product.category === category;
+      !activeCategory || product.category === activeCategory;
 
     const matchesSearch =
-      product.name.toLocaleLowerCase("tr").includes(search);
+      (product.name || "").toLocaleLowerCase("tr").includes(search);
 
     return product.active !== false &&
       matchesCategory &&
@@ -148,47 +156,35 @@ function renderProducts() {
         const available = Number(product.stock) > 0;
 
         return `
-          <div class="product">
-            <img
-              src="${escapeHTML(product.image || "")}"
-              alt="${escapeHTML(product.name)}"
-              loading="lazy"
-            >
+          <article class="product">
+            <img src="${escapeHTML(product.image || "")}"
+                 alt="${escapeHTML(product.name)}"
+                 loading="lazy">
 
             <div class="product-info">
               <h3>${escapeHTML(product.name)}</h3>
               <p>${escapeHTML(product.description || "")}</p>
+              <div class="price">${money(product.price)}</div>
+              <p>${available
+                ? "Stok: " + Number(product.stock)
+                : "🔴 Stok Tükendi"}</p>
 
-              <div class="price">
-                ${money(product.price)}
-              </div>
-
-              <p>
-                ${available
-                  ? "Stok: " + product.stock
-                  : "🔴 Stok Tükendi"}
-              </p>
-
-              <button
-                data-add="${escapeHTML(product.id)}"
-                ${available ? "" : "disabled"}
-              >
+              <button data-add="${escapeHTML(product.id)}"
+                ${available ? "" : "disabled"}>
                 ${available ? "Sepete Ekle" : "Tükendi"}
               </button>
             </div>
-          </div>
+          </article>
         `;
       }).join("")
     : "<p>Aradığınız ürün bulunamadı.</p>";
 }
 
-/* ARAMA VE KATEGORİ */
+$("productSearch")?.addEventListener("input", renderProducts);
 
-$("searchInput").addEventListener("input", renderProducts);
-
-document.querySelectorAll("[data-category]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    category = btn.dataset.category;
+document.querySelectorAll("[data-category]").forEach(button => {
+  button.addEventListener("click", () => {
+    activeCategory = button.dataset.category;
     renderProducts();
   });
 });
@@ -201,7 +197,7 @@ function addToCart(id) {
   );
 
   if (!product || Number(product.stock) <= 0) {
-    return notify("Ürün stokta bulunmuyor.");
+    return notify("Bu ürün stokta bulunmuyor.");
   }
 
   const quantity = cart.filter(
@@ -231,11 +227,10 @@ function renderCart() {
     : "<p>Sepetiniz boş.</p>";
 
   const total = cart.reduce(
-    (sum, item) => sum + Number(item.price),
-    0
+    (sum, item) => sum + Number(item.price), 0
   );
 
-  $("cartTotal").textContent = "Toplam: " + money(total);
+  $("cartTotal").textContent = money(total);
 }
 
 document.addEventListener("click", event => {
@@ -250,14 +245,14 @@ document.addEventListener("click", event => {
   }
 });
 
-$("cartBtn").addEventListener("click", () => {
+$("cartBtn")?.addEventListener("click", () => {
   renderCart();
   openModal("cartModal");
 });
 
-/* HESAP VE YÖNETİCİ */
+/* HESAP VE OTURUM */
 
-$("accountBtn").addEventListener("click", () => {
+$("accountBtn")?.addEventListener("click", () => {
   if (isAdmin) {
     openModal("adminModal");
     loadAdminData();
@@ -266,15 +261,13 @@ $("accountBtn").addEventListener("click", () => {
   }
 });
 
-$("loginBtn").addEventListener("click", async () => {
-  if (!db) return notify("Veritabanı henüz bağlanmadı.");
+$("accountForm")?.addEventListener("submit", async event => {
+  event.preventDefault();
 
-  const email = $("email").value.trim();
-  const password = $("password").value;
+  if (!db) return notify("Supabase bağlantısı henüz yapılmadı.");
 
-  if (!email || !password) {
-    return notify("E-posta ve şifre girin.");
-  }
+  const email = $("accountEmail").value.trim();
+  const password = $("accountPassword").value;
 
   const { error } = await db.auth.signInWithPassword({
     email,
@@ -291,14 +284,14 @@ $("loginBtn").addEventListener("click", async () => {
   notify("Giriş başarılı.");
 });
 
-$("signupBtn").addEventListener("click", async () => {
-  if (!db) return notify("Veritabanı henüz bağlanmadı.");
+$("registerBtn")?.addEventListener("click", async () => {
+  if (!db) return notify("Supabase bağlantısı henüz yapılmadı.");
 
-  const email = $("email").value.trim();
-  const password = $("password").value;
+  const email = $("accountEmail").value.trim();
+  const password = $("accountPassword").value;
 
-  if (!email || password.length < 6) {
-    return notify("Geçerli e-posta ve en az 6 karakterli şifre girin.");
+  if (password.length < 6) {
+    return notify("Şifre en az 6 karakter olmalı.");
   }
 
   const { error } = await db.auth.signUp({
@@ -309,6 +302,18 @@ $("signupBtn").addEventListener("click", async () => {
   $("accountStatus").textContent = error
     ? error.message
     : "Kayıt oluşturuldu. E-postanı kontrol et.";
+});
+
+$("logoutBtn")?.addEventListener("click", async () => {
+  if (!db) return;
+
+  const { error } = await db.auth.signOut();
+
+  if (error) return notify(error.message);
+
+  await checkAccount();
+  closeModal("accountModal");
+  notify("Çıkış yapıldı.");
 });
 
 async function checkAccount() {
@@ -330,23 +335,30 @@ async function checkAccount() {
   }
 
   $("accountBtn").textContent =
-    isAdmin ? "👑 Yönetici Paneli" : "Hesabım";
+    isAdmin ? "Yönetici Paneli" : "Hesabım";
+
+  $("adminBtn").hidden = !isAdmin;
+  $("logoutBtn").hidden = !currentUser;
 }
+
+/* YÖNETİCİ PANELİ */
+
+$("adminBtn")?.addEventListener("click", () => {
+  if (!isAdmin) return notify("Yönetici yetkisi gerekli.");
+
+  openModal("adminModal");
+  loadAdminData();
+});
 
 /* FOTOĞRAF YÜKLEME */
 
 async function uploadProductImage(file) {
   if (!db) throw new Error("Supabase bağlantısı yok.");
-
   if (!file) throw new Error("Ürün fotoğrafı seçin.");
 
-  const allowedTypes = [
-    "image/jpeg",
-    "image/png",
-    "image/webp"
-  ];
+  const allowed = ["image/jpeg", "image/png", "image/webp"];
 
-  if (!allowedTypes.includes(file.type)) {
+  if (!allowed.includes(file.type)) {
     throw new Error("JPG, PNG veya WEBP fotoğraf seçin.");
   }
 
@@ -354,15 +366,12 @@ async function uploadProductImage(file) {
     throw new Error("Fotoğraf en fazla 5 MB olabilir.");
   }
 
-  const extension = file.type.split("/")[1]
-    .replace("jpeg", "jpg");
-
-  const filePath =
-    "products/" + crypto.randomUUID() + "." + extension;
+  const extension = file.type.split("/")[1].replace("jpeg", "jpg");
+  const path = "products/" + crypto.randomUUID() + "." + extension;
 
   const { error } = await db.storage
     .from("product-images")
-    .upload(filePath, file, {
+    .upload(path, file, {
       cacheControl: "3600",
       upsert: false,
       contentType: file.type
@@ -372,14 +381,16 @@ async function uploadProductImage(file) {
 
   const { data } = db.storage
     .from("product-images")
-    .getPublicUrl(filePath);
+    .getPublicUrl(path);
 
   return data.publicUrl;
 }
 
-/* YENİ ÜRÜN YAYINLA */
+/* ÜRÜN EKLEME */
 
-$("addProductBtn").addEventListener("click", async () => {
+$("productForm")?.addEventListener("submit", async event => {
+  event.preventDefault();
+
   if (!db || !isAdmin) {
     return notify("Yönetici yetkisi gerekli.");
   }
@@ -388,57 +399,38 @@ $("addProductBtn").addEventListener("click", async () => {
 
   const name = $("productName").value.trim();
   const price = Number($("productPrice").value);
-  const productCategory = $("productCategory").value;
+  const category = $("productCategory").value;
   const stock = Number($("productStock").value);
   const description = $("productDescription").value.trim();
   const file = $("productImage").files[0];
 
-  if (!name || !productCategory || !description) {
-    return notify("Ürün bilgilerini doldurun.");
+  if (!name || !category || !description || !file) {
+    return notify("Tüm ürün bilgilerini ve fotoğrafı girin.");
   }
 
-  if (!Number.isFinite(price) || price <= 0) {
-    return notify("Geçerli bir ürün fiyatı girin.");
+  if (!Number.isFinite(price) || price <= 0 ||
+      !Number.isInteger(stock) || stock < 0) {
+    return notify("Fiyat veya stok bilgisi geçersiz.");
   }
-
-  if (!Number.isInteger(stock) || stock < 0) {
-    return notify("Geçerli stok adedi girin.");
-  }
-
-  if (!file) return notify("Ürün fotoğrafı seçin.");
 
   uploading = true;
   $("addProductBtn").disabled = true;
   $("addProductBtn").textContent = "Yükleniyor...";
 
   try {
-    const imageUrl = await uploadProductImage(file);
+    const image = await uploadProductImage(file);
 
-    const { error } = await db
-      .from("products")
-      .insert({
-        name,
-        price,
-        category: productCategory,
-        stock,
-        description,
-        image: imageUrl,
-        active: true
-      });
+    const { error } = await db.from("products").insert({
+      name, price, category, stock, description,
+      image, active: true
+    });
 
     if (error) throw error;
 
-    $("productName").value = "";
-    $("productPrice").value = "";
-    $("productCategory").value = "";
-    $("productStock").value = "";
-    $("productDescription").value = "";
-    $("productImage").value = "";
-
-    notify("Ürün başarıyla yayınlandı.");
-
+    $("productForm").reset();
     await loadProducts();
     await loadAdminData();
+    notify("Ürün başarıyla eklendi.");
 
   } catch (error) {
     console.error(error);
@@ -447,39 +439,29 @@ $("addProductBtn").addEventListener("click", async () => {
   } finally {
     uploading = false;
     $("addProductBtn").disabled = false;
-    $("addProductBtn").textContent = "Ürün Yayınla";
+    $("addProductBtn").textContent = "Ürünü Kaydet";
   }
 });
 
-/* YÖNETİCİ ÜRÜN LİSTESİ */
+/* ÜRÜN YÖNETİMİ */
 
 function renderAdminProducts() {
   $("adminProductList").innerHTML = products.length
     ? products.map(product => `
         <div class="admin-product">
           <b>${escapeHTML(product.name)}</b>
-          <p>Fiyat: ${money(product.price)}</p>
-          <p>Stok: ${product.stock}</p>
-
-          <button data-stock="${escapeHTML(product.id)}">
-            Stok Güncelle
-          </button>
-
-          <button data-delete="${escapeHTML(product.id)}">
-            Ürünü Sil
-          </button>
+          <p>${money(product.price)} · Stok: ${product.stock}</p>
+          <button data-stock="${escapeHTML(product.id)}">Stok Güncelle</button>
+          <button data-delete="${escapeHTML(product.id)}">Ürünü Sil</button>
         </div>
       `).join("")
     : "<p>Henüz ürün yok.</p>";
 }
 
-/* STOK GÜNCELLE */
-
 async function updateStock(id) {
-  if (!isAdmin || !db) return;
+  if (!db || !isAdmin) return;
 
   const value = prompt("Yeni stok adedini yaz:");
-
   if (value === null) return;
 
   const stock = Number(value);
@@ -488,40 +470,27 @@ async function updateStock(id) {
     return notify("Geçerli stok adedi girin.");
   }
 
-  const { error } = await db
-    .from("products")
-    .update({ stock })
-    .eq("id", id);
+  const { error } = await db.from("products")
+    .update({ stock }).eq("id", id);
 
-  if (error) return notify("Stok güncellenemedi.");
+  if (error) return notify(error.message);
 
   await loadProducts();
   notify("Stok güncellendi.");
 }
 
-/* ÜRÜN SİL */
-
 async function deleteProduct(id) {
-  if (!isAdmin || !db) return;
+  if (!db || !isAdmin) return;
+  if (!confirm("Bu ürün silinsin mi?")) return;
 
-  if (!confirm("Bu ürün tamamen silinsin mi?")) return;
+  const { error } = await db.from("products")
+    .delete().eq("id", id);
 
-  const { error } = await db
-    .from("products")
-    .delete()
-    .eq("id", id);
+  if (error) return notify(error.message);
 
-  if (error) {
-    return notify("Ürün silinemedi: " + error.message);
-  }
-
-  cart = cart.filter(
-    item => String(item.id) !== String(id)
-  );
-
+  cart = cart.filter(item => String(item.id) !== String(id));
   renderCart();
   await loadProducts();
-
   notify("Ürün silindi.");
 }
 
@@ -533,66 +502,17 @@ document.addEventListener("click", event => {
   if (remove) deleteProduct(remove.dataset.delete);
 });
 
-/* MÜŞTERİ MESAJLARI VE SİPARİŞLER */
+/* SİPARİŞ */
 
-async function loadAdminData() {
-  if (!db || !isAdmin) return;
+$("checkoutForm")?.addEventListener("submit", async event => {
+  event.preventDefault();
 
-  renderAdminProducts();
+  if (!cart.length) return notify("Sepetiniz boş.");
+  if (!db) return notify("Sipariş sistemi henüz bağlanmadı.");
 
-  const messages = await db
-    .from("messages")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  $("adminMessages").innerHTML =
-    (messages.data || []).map(item => `
-      <div class="admin-message">
-        <b>${escapeHTML(item.name)}</b>
-        <p>${escapeHTML(item.contact || "")}</p>
-        <p>${escapeHTML(item.message)}</p>
-      </div>
-    `).join("") || "Henüz mesaj yok.";
-
-  const orders = await db
-    .from("orders")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  $("adminOrders").innerHTML =
-    (orders.data || []).map(item => `
-      <div class="admin-order">
-        <b>${escapeHTML(item.customer_name)}</b>
-        <p>Telefon: ${escapeHTML(item.phone)}</p>
-        <p>Adres: ${escapeHTML(item.address)}</p>
-        <p>Toplam: ${money(item.total)}</p>
-        <p>Durum: ${escapeHTML(item.status)}</p>
-      </div>
-    `).join("") || "Henüz sipariş yok.";
-
-  if (messages.error) {
-    $("adminMessages").textContent = "Mesajlar yüklenemedi.";
-  }
-
-  if (orders.error) {
-    $("adminOrders").textContent = "Siparişler yüklenemedi.";
-  }
-}
-
-/* SİPARİŞ OLUŞTUR */
-
-$("checkoutBtn").addEventListener("click", async () => {
-  if (!cart.length) {
-    return notify("Sepetiniz boş.");
-  }
-
-  if (!db) {
-    return notify("Sipariş sistemi henüz bağlanmadı.");
-  }
-
-  const name = $("buyerName").value.trim();
-  const phone = $("buyerPhone").value.trim();
-  const address = $("buyerAddress").value.trim();
+  const name = $("customerName").value.trim();
+  const phone = $("customerPhone").value.trim();
+  const address = $("customerAddress").value.trim();
 
   if (!name || !phone || !address) {
     return notify("Sipariş bilgilerini doldurun.");
@@ -605,13 +525,11 @@ $("checkoutBtn").addEventListener("click", async () => {
   });
 
   const items = Object.entries(grouped).map(
-    ([product_id, quantity]) => ({
-      product_id,
-      quantity
-    })
+    ([product_id, quantity]) => ({ product_id, quantity })
   );
 
-  $("checkoutBtn").disabled = true;
+  const button = $("checkoutForm").querySelector('[type="submit"]');
+  button.disabled = true;
 
   try {
     const { data, error } = await db.rpc("place_order", {
@@ -625,111 +543,279 @@ $("checkoutBtn").addEventListener("click", async () => {
 
     cart = [];
     renderCart();
-
-    $("buyerName").value = "";
-    $("buyerPhone").value = "";
-    $("buyerAddress").value = "";
-
-    $("orderStatus").textContent =
-      "Siparişiniz alındı! Sipariş numarası: " + data;
-
-    notify("Sipariş başarıyla oluşturuldu.");
-
+    $("checkoutForm").reset();
+    notify("Siparişiniz alındı. Sipariş numarası: " + data);
     await loadProducts();
 
   } catch (error) {
     console.error(error);
-    $("orderStatus").textContent =
-      "Sipariş oluşturulamadı: " + error.message;
+    notify("Sipariş oluşturulamadı: " + error.message);
 
   } finally {
-    $("checkoutBtn").disabled = false;
+    button.disabled = false;
   }
 });
 
-/* MÜŞTERİ MESAJ GÖNDERME */
+/* İLETİŞİM MESAJI */
 
-$("messageForm").addEventListener("submit", async event => {
+$("contactForm")?.addEventListener("submit", async event => {
   event.preventDefault();
 
-  if (!db) {
-    return notify("Mesaj sistemi henüz bağlanmadı.");
-  }
+  if (!db) return notify("Mesaj sistemi henüz bağlanmadı.");
 
-  const name = $("messageName").value.trim();
-  const contact = $("messageContact").value.trim();
-  const message = $("messageText").value.trim();
+  const name = $("contactName").value.trim();
+  const email = $("contactEmail").value.trim();
+  const message = $("contactMessage").value.trim();
 
-  if (!name || !message) {
-    return notify("Adınızı ve mesajınızı girin.");
-  }
-
-  const { error } = await db
-    .from("messages")
-    .insert({
-      name,
-      contact,
-      message
-    });
+  const { error } = await db.from("messages").insert({
+    name,
+    contact: email,
+    message
+  });
 
   if (error) {
     console.error(error);
-    return notify("Mesaj gönderilemedi.");
+    return notify("Mesaj gönderilemedi: " + error.message);
   }
 
-  $("messageForm").reset();
+  $("contactForm").reset();
   notify("Mesajınız gönderildi.");
 });
 
-/* INSTAGRAM VE WHATSAPP */
+/* YORUM SİSTEMİ */
 
-function loadContact() {
-  const instagram = config.INSTAGRAM_USERNAME;
-  const whatsapp = config.WHATSAPP_NUMBER;
+function updateReviewProducts() {
+  const select = $("reviewProduct");
+  if (!select) return;
 
-  $("instagramLink").onclick = event => {
-    if (!instagram) {
-      event.preventDefault();
-      notify("Instagram hesabı henüz eklenmedi.");
-    }
-  };
-
-  if (instagram) {
-    $("instagramLink").href =
-      "https://instagram.com/" + instagram.replace("@", "");
-    $("instagramLink").target = "_blank";
-  }
-
-  $("whatsappLink").onclick = event => {
-    if (!whatsapp) {
-      event.preventDefault();
-      notify("WhatsApp numarası henüz eklenmedi.");
-    }
-  };
-
-  if (whatsapp) {
-    $("whatsappLink").href =
-      "https://wa.me/" + whatsapp.replace(/\D/g, "");
-    $("whatsappLink").target = "_blank";
-  }
+  select.innerHTML =
+    '<option value="">Ürün seç</option>' +
+    products.map(product => `
+      <option value="${escapeHTML(product.id)}">
+        ${escapeHTML(product.name)}
+      </option>
+    `).join("");
 }
 
-/* AUTH OTURUM TAKİBİ */
+$("reviewForm")?.addEventListener("submit", async event => {
+  event.preventDefault();
+
+  if (!db) {
+    $("reviewStatus").textContent =
+      "Yorum sistemi henüz veritabanına bağlanmadı.";
+    return;
+  }
+
+  const customerName = $("reviewName").value.trim();
+  const productId = $("reviewProduct").value;
+  const rating = Number($("reviewRating").value);
+  const comment = $("reviewText").value.trim();
+
+  if (!customerName || !productId || !comment ||
+      rating < 1 || rating > 5) {
+    $("reviewStatus").textContent = "Lütfen tüm alanları doldurun.";
+    return;
+  }
+
+  const { error } = await db.from("reviews").insert({
+    product_id: productId,
+    customer_name: customerName,
+    rating,
+    comment,
+    approved: false
+  });
+
+  if (error) {
+    console.error(error);
+    $("reviewStatus").textContent =
+      "Yorum gönderilemedi: " + error.message;
+    return;
+  }
+
+  $("reviewForm").reset();
+  $("reviewStatus").textContent =
+    "Yorumun gönderildi. Yönetici onayından sonra yayınlanacak.";
+
+  await loadReviews();
+});
+
+async function loadReviews() {
+  if (!db) {
+    $("reviewList").innerHTML =
+      "<p>Yorumlar, mağaza veritabanı bağlandıktan sonra görüntülenecek.</p>";
+    return;
+  }
+
+  const { data, error } = await db
+    .from("reviews")
+    .select("*, products(name)")
+    .eq("approved", true)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error(error);
+    $("reviewList").textContent = "Yorumlar yüklenemedi.";
+    return;
+  }
+
+  $("reviewList").innerHTML = (data || []).length
+    ? data.map(review => `
+        <article class="review-card">
+          <h3>${escapeHTML(review.customer_name)}</h3>
+          <p class="review-stars">${"★".repeat(Number(review.rating))}${"☆".repeat(5 - Number(review.rating))}</p>
+          <small>${escapeHTML(review.products?.name || "Ürün")}</small>
+          <p>${escapeHTML(review.comment)}</p>
+        </article>
+      `).join("")
+    : "<p>Henüz onaylanmış yorum yok.</p>";
+}
+
+/* YÖNETİCİ VERİLERİ */
+
+async function loadAdminData() {
+  if (!db || !isAdmin) return;
+
+  renderAdminProducts();
+
+  const { data: messages, error: messageError } = await db
+    .from("messages")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  $("adminMessageList").innerHTML = messageError
+    ? "Mesajlar yüklenemedi."
+    : (messages || []).map(item => `
+        <div class="admin-message">
+          <b>${escapeHTML(item.name)}</b>
+          <p>${escapeHTML(item.contact || "")}</p>
+          <p>${escapeHTML(item.message)}</p>
+        </div>
+      `).join("") || "Henüz mesaj yok.";
+
+  const { data: orders, error: orderError } = await db
+    .from("orders")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  $("adminOrderList").innerHTML = orderError
+    ? "Siparişler yüklenemedi."
+    : (orders || []).map(item => `
+        <div class="admin-order">
+          <b>${escapeHTML(item.customer_name)}</b>
+          <p>Telefon: ${escapeHTML(item.phone)}</p>
+          <p>Adres: ${escapeHTML(item.address)}</p>
+          <p>Toplam: ${money(item.total)}</p>
+          <p>Durum: ${escapeHTML(item.status)}</p>
+        </div>
+      `).join("") || "Henüz sipariş yok.";
+
+  await loadAdminReviews();
+}
+
+/* YÖNETİCİ YORUM ONAYI */
+
+async function loadAdminReviews() {
+  const container = $("adminReviews");
+  if (!container || !db || !isAdmin) return;
+
+  const { data, error } = await db
+    .from("reviews")
+    .select("*, products(name)")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    container.textContent = "Yorumlar yüklenemedi.";
+    return;
+  }
+
+  container.innerHTML = (data || []).length
+    ? data.map(review => `
+        <div class="admin-review">
+          <b>${escapeHTML(review.customer_name)}</b>
+          <p>${escapeHTML(review.products?.name || "Ürün")}</p>
+          <p>${"★".repeat(Number(review.rating))}</p>
+          <p>${escapeHTML(review.comment)}</p>
+          <p>Durum: ${review.approved ? "Onaylandı" : "Onay bekliyor"}</p>
+          ${review.approved ? "" : `
+            <button data-approve-review="${escapeHTML(review.id)}">
+              Yorumu Onayla
+            </button>
+          `}
+          <button data-delete-review="${escapeHTML(review.id)}">
+            Yorumu Sil
+          </button>
+        </div>
+      `).join("")
+    : "Henüz yorum yok.";
+}
+
+document.addEventListener("click", async event => {
+  const approve = event.target.closest("[data-approve-review]");
+  const remove = event.target.closest("[data-delete-review]");
+
+  if (!db || !isAdmin) return;
+
+  if (approve) {
+    const { error } = await db.from("reviews")
+      .update({ approved: true })
+      .eq("id", approve.dataset.approveReview);
+
+    if (error) return notify("Yorum onaylanamadı.");
+
+    await loadAdminReviews();
+    await loadReviews();
+    notify("Yorum yayınlandı.");
+  }
+
+  if (remove) {
+    if (!confirm("Bu yorum silinsin mi?")) return;
+
+    const { error } = await db.from("reviews")
+      .delete()
+      .eq("id", remove.dataset.deleteReview);
+
+    if (error) return notify("Yorum silinemedi.");
+
+    await loadAdminReviews();
+    await loadReviews();
+    notify("Yorum silindi.");
+  }
+});
+
+/* SOSYAL MEDYA */
+
+function loadContactLinks() {
+  const social = $("socialLinks");
+  if (!social) return;
+
+  const instagram = (config.INSTAGRAM_USERNAME || "").replace("@", "");
+  const whatsapp = (config.WHATSAPP_NUMBER || "").replace(/\D/g, "");
+
+  social.innerHTML = `
+    ${instagram
+      ? `<a href="https://instagram.com/${encodeURIComponent(instagram)}" target="_blank" rel="noopener">Instagram</a>`
+      : ""}
+    ${whatsapp
+      ? `<a href="https://wa.me/${whatsapp}" target="_blank" rel="noopener">WhatsApp</a>`
+      : ""}
+  `;
+}
+
+/* AUTH TAKİBİ */
 
 if (db) {
   db.auth.onAuthStateChange(() => {
-    setTimeout(async () => {
-      await checkAccount();
-    }, 0);
+    setTimeout(checkAccount, 0);
   });
 }
 
 /* BAŞLAT */
 
 async function start() {
-  loadContact();
+  loadContactLinks();
   await checkAccount();
   await loadProducts();
+  await loadReviews();
   renderCart();
 }
 
