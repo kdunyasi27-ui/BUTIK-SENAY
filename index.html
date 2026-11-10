@@ -7,6 +7,7 @@
   <meta name="theme-color" content="#a20f58">
   <meta name="description" content="BUTİK ŞENAY - Kadın giyim, çanta ve aksesuar mağazası">
   <title>BUTİK ŞENAY | Online Mağaza</title>
+
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -111,10 +112,13 @@
   <div class="modal-content">
     <button class="close" data-close="accountModal">×</button>
     <h2>Hesabım</h2>
+
     <input id="email" type="email" placeholder="E-posta adresin">
     <input id="password" type="password" placeholder="Şifren">
+
     <button id="loginBtn">Giriş Yap</button>
     <button id="signupBtn">Üye Ol</button>
+
     <p id="accountStatus"></p>
   </div>
 </div>
@@ -124,6 +128,7 @@
   <div class="modal-content">
     <button class="close" data-close="cartModal">×</button>
     <h2>Alışveriş Sepetim</h2>
+
     <div id="cartItems"></div>
     <h3 id="cartTotal">Toplam: 0 TL</h3>
 
@@ -140,15 +145,33 @@
 <div id="adminModal" class="modal">
   <div class="modal-content">
     <button class="close" data-close="adminModal">×</button>
+
     <h2>👑 Kurucu Yönetim Paneli</h2>
 
     <h3>Yeni Ürün Ekle</h3>
 
     <input id="productName" placeholder="Ürün adı">
-    <input id="productPrice" type="number" placeholder="Fiyat">
-    <input id="productCategory" placeholder="Kategori">
-    <input id="productStock" type="number" min="0" placeholder="Stok adedi">
-    <input id="productImage" type="url" placeholder="Fotoğraf bağlantısı">
+    <input id="productPrice" type="number" min="0" step="0.01" placeholder="Fiyat">
+
+    <select id="productCategory">
+      <option value="">Kategori seçin</option>
+      <option value="Elbise">Elbise</option>
+      <option value="Bluz">Bluz</option>
+      <option value="Pantolon">Pantolon</option>
+      <option value="Çanta">Çanta</option>
+      <option value="Ayakkabı">Ayakkabı</option>
+      <option value="Takı">Takı & Aksesuar</option>
+    </select>
+
+    <input id="productStock" type="number" min="0" step="1" placeholder="Stok adedi">
+
+    <label for="productImage">Ürün Fotoğrafı</label>
+    <input
+      id="productImage"
+      type="file"
+      accept="image/jpeg,image/png,image/webp"
+    >
+
     <textarea id="productDescription" placeholder="Ürün açıklaması"></textarea>
 
     <button id="addProductBtn">Ürün Yayınla</button>
