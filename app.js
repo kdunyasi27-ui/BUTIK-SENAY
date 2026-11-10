@@ -1,5 +1,7 @@
 
-/* BUTİK ŞENAY - MAĞAZA SİSTEMİ */
+/* =========================================
+   BUTİK ŞENAY - MAĞAZA SİSTEMİ
+   ========================================= */
 
 const config = window.BUTIK_CONFIG || {};
 
@@ -19,6 +21,7 @@ let cart = [];
 let currentUser = null;
 let isAdmin = false;
 let category = "";
+let uploading = false;
 
 const $ = id => document.getElementById(id);
 
@@ -29,20 +32,19 @@ const money = value =>
   }).format(Number(value) || 0);
 
 function escapeHTML(value) {
-  return String(value ?? "").replace(
-    /[&<>"']/g,
-    char => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;"
-    })[char]
-  );
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[char]);
 }
 
 function notify(message) {
   const el = $("toast");
+  if (!el) return;
+
   el.textContent = message;
   el.style.display = "block";
 
@@ -52,15 +54,17 @@ function notify(message) {
 }
 
 function openModal(id) {
-  $(id).classList.add("show");
+  $(id)?.classList.add("show");
 }
 
 function closeModal(id) {
-  $(id).classList.remove("show");
+  $(id)?.classList.remove("show");
 }
 
 document.querySelectorAll("[data-close]").forEach(btn => {
-  btn.onclick = () => closeModal(btn.dataset.close);
+  btn.addEventListener("click", () => {
+    closeModal(btn.dataset.close);
+  });
 });
 
 /* ÖRNEK ÜRÜNLER */
@@ -110,8 +114,8 @@ async function loadProducts() {
     .order("created_at", { ascending: false });
 
   if (error) {
+    console.error(error);
     notify("Ürünler yüklenemedi.");
-    products = [];
     return;
   }
 
@@ -121,7 +125,7 @@ async function loadProducts() {
   if (isAdmin) renderAdminProducts();
 }
 
-/* ÜRÜN KARTLARI */
+/* ÜRÜN GÖRÜNTÜLEME */
 
 function renderProducts() {
   const search = $("searchInput").value
@@ -132,28 +136,28 @@ function renderProducts() {
       !category || product.category === category;
 
     const matchesSearch =
-      product.name.toLocaleLowerCase("tr")
-        .includes(search);
+      product.name.toLocaleLowerCase("tr").includes(search);
 
-    return matchesCategory && matchesSearch;
+    return product.active !== false &&
+      matchesCategory &&
+      matchesSearch;
   });
 
   $("productList").innerHTML = filtered.length
     ? filtered.map(product => {
-        const available = product.stock > 0;
+        const available = Number(product.stock) > 0;
 
         return `
           <div class="product">
             <img
-              src="${escapeHTML(product.image)}"
+              src="${escapeHTML(product.image || "")}"
               alt="${escapeHTML(product.name)}"
               loading="lazy"
             >
 
             <div class="product-info">
               <h3>${escapeHTML(product.name)}</h3>
-
-              <p>${escapeHTML(product.description)}</p>
+              <p>${escapeHTML(product.description || "")}</p>
 
               <div class="price">
                 ${money(product.price)}
@@ -175,18 +179,18 @@ function renderProducts() {
           </div>
         `;
       }).join("")
-    : "<p>Henüz ürün bulunmuyor.</p>";
+    : "<p>Aradığınız ürün bulunamadı.</p>";
 }
 
-/* KATEGORİ VE ARAMA */
+/* ARAMA VE KATEGORİ */
 
-$("searchInput").oninput = renderProducts;
+$("searchInput").addEventListener("input", renderProducts);
 
 document.querySelectorAll("[data-category]").forEach(btn => {
-  btn.onclick = () => {
+  btn.addEventListener("click", () => {
     category = btn.dataset.category;
     renderProducts();
-  };
+  });
 });
 
 /* SEPET */
@@ -196,18 +200,16 @@ function addToCart(id) {
     item => String(item.id) === String(id)
   );
 
-  if (!product || product.stock <= 0) {
-    notify("Ürün stokta bulunmuyor.");
-    return;
+  if (!product || Number(product.stock) <= 0) {
+    return notify("Ürün stokta bulunmuyor.");
   }
 
   const quantity = cart.filter(
     item => String(item.id) === String(id)
   ).length;
 
-  if (quantity >= product.stock) {
-    notify("Stoktaki ürünlerin tamamı sepette.");
-    return;
+  if (quantity >= Number(product.stock)) {
+    return notify("Stoktaki ürünlerin tamamı sepette.");
   }
 
   cart.push(product);
@@ -220,7 +222,7 @@ function renderCart() {
 
   $("cartItems").innerHTML = cart.length
     ? cart.map((product, index) => `
-        <div style="padding:10px;border-bottom:1px solid #eee">
+        <div class="cart-item">
           <b>${escapeHTML(product.name)}</b>
           <p>${money(product.price)}</p>
           <button data-remove="${index}">Sil</button>
@@ -229,7 +231,8 @@ function renderCart() {
     : "<p>Sepetiniz boş.</p>";
 
   const total = cart.reduce(
-    (sum, item) => sum + Number(item.price), 0
+    (sum, item) => sum + Number(item.price),
+    0
   );
 
   $("cartTotal").textContent = "Toplam: " + money(total);
@@ -247,28 +250,35 @@ document.addEventListener("click", event => {
   }
 });
 
-$("cartBtn").onclick = () => {
+$("cartBtn").addEventListener("click", () => {
   renderCart();
   openModal("cartModal");
-};
+});
 
-/* ÜYELİK */
+/* HESAP VE YÖNETİCİ */
 
-$("accountBtn").onclick = () => {
+$("accountBtn").addEventListener("click", () => {
   if (isAdmin) {
     openModal("adminModal");
     loadAdminData();
   } else {
     openModal("accountModal");
   }
-};
+});
 
-$("loginBtn").onclick = async () => {
-  if (!db) return notify("Veritabanı bağlanmadı.");
+$("loginBtn").addEventListener("click", async () => {
+  if (!db) return notify("Veritabanı henüz bağlanmadı.");
+
+  const email = $("email").value.trim();
+  const password = $("password").value;
+
+  if (!email || !password) {
+    return notify("E-posta ve şifre girin.");
+  }
 
   const { error } = await db.auth.signInWithPassword({
-    email: $("email").value,
-    password: $("password").value
+    email,
+    password
   });
 
   if (error) {
@@ -279,27 +289,34 @@ $("loginBtn").onclick = async () => {
   await checkAccount();
   closeModal("accountModal");
   notify("Giriş başarılı.");
-};
+});
 
-$("signupBtn").onclick = async () => {
-  if (!db) return notify("Veritabanı bağlanmadı.");
+$("signupBtn").addEventListener("click", async () => {
+  if (!db) return notify("Veritabanı henüz bağlanmadı.");
+
+  const email = $("email").value.trim();
+  const password = $("password").value;
+
+  if (!email || password.length < 6) {
+    return notify("Geçerli e-posta ve en az 6 karakterli şifre girin.");
+  }
 
   const { error } = await db.auth.signUp({
-    email: $("email").value,
-    password: $("password").value
+    email,
+    password
   });
 
   $("accountStatus").textContent = error
     ? error.message
     : "Kayıt oluşturuldu. E-postanı kontrol et.";
-};
+});
 
 async function checkAccount() {
   if (!db) return;
 
-  const { data } = await db.auth.getUser();
-  currentUser = data.user;
+  const { data, error } = await db.auth.getUser();
 
+  currentUser = error ? null : data.user;
   isAdmin = false;
 
   if (currentUser) {
@@ -316,135 +333,144 @@ async function checkAccount() {
     isAdmin ? "👑 Yönetici Paneli" : "Hesabım";
 }
 
-/* MİSAFİR VE ÜYE SİPARİŞİ */
+/* FOTOĞRAF YÜKLEME */
 
-$("checkoutBtn").onclick = async () => {
-  if (!cart.length) {
-    return notify("Sepetiniz boş.");
+async function uploadProductImage(file) {
+  if (!db) throw new Error("Supabase bağlantısı yok.");
+
+  if (!file) throw new Error("Ürün fotoğrafı seçin.");
+
+  const allowedTypes = [
+    "image/jpeg",
+    "image/png",
+    "image/webp"
+  ];
+
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error("JPG, PNG veya WEBP fotoğraf seçin.");
   }
 
-  if (!db) {
-    return notify("Sipariş sistemi henüz bağlanmadı.");
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error("Fotoğraf en fazla 5 MB olabilir.");
   }
 
-  const name = $("buyerName").value.trim();
-  const phone = $("buyerPhone").value.trim();
-  const address = $("buyerAddress").value.trim();
+  const extension = file.type.split("/")[1]
+    .replace("jpeg", "jpg");
 
-  if (!name || !phone || !address) {
-    return notify("Sipariş bilgilerini doldurun.");
-  }
+  const filePath =
+    "products/" + crypto.randomUUID() + "." + extension;
 
-  const items = cart.map(item => ({
-    product_id: item.id,
-    quantity: 1
-  }));
+  const { error } = await db.storage
+    .from("product-images")
+    .upload(filePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type
+    });
 
-  const { data, error } = await db.rpc(
-    "place_order",
-    {
-      p_name: name,
-      p_phone: phone,
-      p_address: address,
-      p_items: items
-    }
-  );
+  if (error) throw error;
 
-  if (error) {
-    $("orderStatus").textContent =
-      "Sipariş oluşturulamadı: " + error.message;
-    return;
-  }
+  const { data } = db.storage
+    .from("product-images")
+    .getPublicUrl(filePath);
 
-  cart = [];
-  renderCart();
+  return data.publicUrl;
+}
 
-  $("orderStatus").textContent =
-    "Siparişiniz alındı! Numara: " + data;
+/* YENİ ÜRÜN YAYINLA */
 
-  notify("Sipariş başarıyla oluşturuldu.");
-};
-
-/* MÜŞTERİ MESAJLARI */
-
-$("messageForm").onsubmit = async event => {
-  event.preventDefault();
-
-  if (!db) {
-    return notify("Mesaj sistemi henüz bağlanmadı.");
-  }
-
-  const { error } = await db.from("messages").insert({
-    name: $("messageName").value.trim(),
-    contact: $("messageContact").value.trim(),
-    message: $("messageText").value.trim()
-  });
-
-  if (error) {
-    notify("Mesaj gönderilemedi.");
-    return;
-  }
-
-  $("messageForm").reset();
-  notify("Mesajınız gönderildi.");
-};
-
-/* YÖNETİCİ: ÜRÜN EKLE */
-
-$("addProductBtn").onclick = async () => {
+$("addProductBtn").addEventListener("click", async () => {
   if (!db || !isAdmin) {
     return notify("Yönetici yetkisi gerekli.");
   }
 
-  const product = {
-    name: $("productName").value.trim(),
-    price: Number($("productPrice").value),
-    category: $("productCategory").value.trim(),
-    stock: Number($("productStock").value),
-    image: $("productImage").value.trim(),
-    description: $("productDescription").value.trim(),
-    active: true
-  };
+  if (uploading) return;
 
-  if (
-    !product.name ||
-    !product.category ||
-    !Number.isFinite(product.price) ||
-    product.price < 0 ||
-    !Number.isInteger(product.stock) ||
-    product.stock < 0
-  ) {
-    return notify("Ürün bilgilerini kontrol edin.");
+  const name = $("productName").value.trim();
+  const price = Number($("productPrice").value);
+  const productCategory = $("productCategory").value;
+  const stock = Number($("productStock").value);
+  const description = $("productDescription").value.trim();
+  const file = $("productImage").files[0];
+
+  if (!name || !productCategory || !description) {
+    return notify("Ürün bilgilerini doldurun.");
   }
 
-  const { error } = await db
-    .from("products")
-    .insert(product);
+  if (!Number.isFinite(price) || price <= 0) {
+    return notify("Geçerli bir ürün fiyatı girin.");
+  }
 
-  if (error) return notify("Ürün eklenemedi.");
+  if (!Number.isInteger(stock) || stock < 0) {
+    return notify("Geçerli stok adedi girin.");
+  }
 
-  notify("Ürün yayınlandı.");
-  await loadProducts();
-};
+  if (!file) return notify("Ürün fotoğrafı seçin.");
 
-/* YÖNETİCİ: ÜRÜN LİSTESİ */
+  uploading = true;
+  $("addProductBtn").disabled = true;
+  $("addProductBtn").textContent = "Yükleniyor...";
+
+  try {
+    const imageUrl = await uploadProductImage(file);
+
+    const { error } = await db
+      .from("products")
+      .insert({
+        name,
+        price,
+        category: productCategory,
+        stock,
+        description,
+        image: imageUrl,
+        active: true
+      });
+
+    if (error) throw error;
+
+    $("productName").value = "";
+    $("productPrice").value = "";
+    $("productCategory").value = "";
+    $("productStock").value = "";
+    $("productDescription").value = "";
+    $("productImage").value = "";
+
+    notify("Ürün başarıyla yayınlandı.");
+
+    await loadProducts();
+    await loadAdminData();
+
+  } catch (error) {
+    console.error(error);
+    notify("Ürün eklenemedi: " + error.message);
+
+  } finally {
+    uploading = false;
+    $("addProductBtn").disabled = false;
+    $("addProductBtn").textContent = "Ürün Yayınla";
+  }
+});
+
+/* YÖNETİCİ ÜRÜN LİSTESİ */
 
 function renderAdminProducts() {
-  $("adminProductList").innerHTML =
-    products.map(product => `
-      <div style="padding:12px;border-bottom:1px solid #ddd">
-        <b>${escapeHTML(product.name)}</b>
-        <p>Stok: ${product.stock}</p>
+  $("adminProductList").innerHTML = products.length
+    ? products.map(product => `
+        <div class="admin-product">
+          <b>${escapeHTML(product.name)}</b>
+          <p>Fiyat: ${money(product.price)}</p>
+          <p>Stok: ${product.stock}</p>
 
-        <button data-stock="${escapeHTML(product.id)}">
-          Stok Güncelle
-        </button>
+          <button data-stock="${escapeHTML(product.id)}">
+            Stok Güncelle
+          </button>
 
-        <button data-delete="${escapeHTML(product.id)}">
-          Ürünü Sil
-        </button>
-      </div>
-    `).join("");
+          <button data-delete="${escapeHTML(product.id)}">
+            Ürünü Sil
+          </button>
+        </div>
+      `).join("")
+    : "<p>Henüz ürün yok.</p>";
 }
 
 /* STOK GÜNCELLE */
@@ -485,9 +511,17 @@ async function deleteProduct(id) {
     .delete()
     .eq("id", id);
 
-  if (error) return notify("Ürün silinemedi.");
+  if (error) {
+    return notify("Ürün silinemedi: " + error.message);
+  }
 
+  cart = cart.filter(
+    item => String(item.id) !== String(id)
+  );
+
+  renderCart();
   await loadProducts();
+
   notify("Ürün silindi.");
 }
 
@@ -499,7 +533,7 @@ document.addEventListener("click", event => {
   if (remove) deleteProduct(remove.dataset.delete);
 });
 
-/* YÖNETİCİ: MESAJ VE SİPARİŞLER */
+/* MÜŞTERİ MESAJLARI VE SİPARİŞLER */
 
 async function loadAdminData() {
   if (!db || !isAdmin) return;
@@ -513,9 +547,9 @@ async function loadAdminData() {
 
   $("adminMessages").innerHTML =
     (messages.data || []).map(item => `
-      <div style="padding:10px;border-bottom:1px solid #ddd">
+      <div class="admin-message">
         <b>${escapeHTML(item.name)}</b>
-        <p>${escapeHTML(item.contact)}</p>
+        <p>${escapeHTML(item.contact || "")}</p>
         <p>${escapeHTML(item.message)}</p>
       </div>
     `).join("") || "Henüz mesaj yok.";
@@ -527,16 +561,127 @@ async function loadAdminData() {
 
   $("adminOrders").innerHTML =
     (orders.data || []).map(item => `
-      <div style="padding:10px;border-bottom:1px solid #ddd">
+      <div class="admin-order">
         <b>${escapeHTML(item.customer_name)}</b>
-        <p>${escapeHTML(item.phone)}</p>
-        <p>${money(item.total)}</p>
+        <p>Telefon: ${escapeHTML(item.phone)}</p>
+        <p>Adres: ${escapeHTML(item.address)}</p>
+        <p>Toplam: ${money(item.total)}</p>
         <p>Durum: ${escapeHTML(item.status)}</p>
       </div>
     `).join("") || "Henüz sipariş yok.";
+
+  if (messages.error) {
+    $("adminMessages").textContent = "Mesajlar yüklenemedi.";
+  }
+
+  if (orders.error) {
+    $("adminOrders").textContent = "Siparişler yüklenemedi.";
+  }
 }
 
-/* İLETİŞİM */
+/* SİPARİŞ OLUŞTUR */
+
+$("checkoutBtn").addEventListener("click", async () => {
+  if (!cart.length) {
+    return notify("Sepetiniz boş.");
+  }
+
+  if (!db) {
+    return notify("Sipariş sistemi henüz bağlanmadı.");
+  }
+
+  const name = $("buyerName").value.trim();
+  const phone = $("buyerPhone").value.trim();
+  const address = $("buyerAddress").value.trim();
+
+  if (!name || !phone || !address) {
+    return notify("Sipariş bilgilerini doldurun.");
+  }
+
+  const grouped = {};
+
+  cart.forEach(item => {
+    grouped[item.id] = (grouped[item.id] || 0) + 1;
+  });
+
+  const items = Object.entries(grouped).map(
+    ([product_id, quantity]) => ({
+      product_id,
+      quantity
+    })
+  );
+
+  $("checkoutBtn").disabled = true;
+
+  try {
+    const { data, error } = await db.rpc("place_order", {
+      p_name: name,
+      p_phone: phone,
+      p_address: address,
+      p_items: items
+    });
+
+    if (error) throw error;
+
+    cart = [];
+    renderCart();
+
+    $("buyerName").value = "";
+    $("buyerPhone").value = "";
+    $("buyerAddress").value = "";
+
+    $("orderStatus").textContent =
+      "Siparişiniz alındı! Sipariş numarası: " + data;
+
+    notify("Sipariş başarıyla oluşturuldu.");
+
+    await loadProducts();
+
+  } catch (error) {
+    console.error(error);
+    $("orderStatus").textContent =
+      "Sipariş oluşturulamadı: " + error.message;
+
+  } finally {
+    $("checkoutBtn").disabled = false;
+  }
+});
+
+/* MÜŞTERİ MESAJ GÖNDERME */
+
+$("messageForm").addEventListener("submit", async event => {
+  event.preventDefault();
+
+  if (!db) {
+    return notify("Mesaj sistemi henüz bağlanmadı.");
+  }
+
+  const name = $("messageName").value.trim();
+  const contact = $("messageContact").value.trim();
+  const message = $("messageText").value.trim();
+
+  if (!name || !message) {
+    return notify("Adınızı ve mesajınızı girin.");
+  }
+
+  const { error } = await db
+    .from("messages")
+    .insert({
+      name,
+      contact,
+      message
+    });
+
+  if (error) {
+    console.error(error);
+    return notify("Mesaj gönderilemedi.");
+  }
+
+  $("messageForm").reset();
+  notify("Mesajınız gönderildi.");
+});
+
+/* INSTAGRAM VE WHATSAPP */
 
 function loadContact() {
   const instagram = config.INSTAGRAM_USERNAME;
@@ -552,6 +697,7 @@ function loadContact() {
   if (instagram) {
     $("instagramLink").href =
       "https://instagram.com/" + instagram.replace("@", "");
+    $("instagramLink").target = "_blank";
   }
 
   $("whatsappLink").onclick = event => {
@@ -564,7 +710,18 @@ function loadContact() {
   if (whatsapp) {
     $("whatsappLink").href =
       "https://wa.me/" + whatsapp.replace(/\D/g, "");
+    $("whatsappLink").target = "_blank";
   }
+}
+
+/* AUTH OTURUM TAKİBİ */
+
+if (db) {
+  db.auth.onAuthStateChange(() => {
+    setTimeout(async () => {
+      await checkAccount();
+    }, 0);
+  });
 }
 
 /* BAŞLAT */
