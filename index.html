@@ -20,12 +20,10 @@
 
 <body>
 
-  <!-- DUYURU -->
   <div class="announcement">
     BUTİK ŞENAY'A HOŞ GELDİNİZ · ŞIKLIĞIN EN GÜZEL HALİ
   </div>
 
-  <!-- ÜST MENÜ -->
   <header class="site-header">
     <a class="brand" href="#home">
       <span>BUTİK</span>
@@ -53,7 +51,6 @@
 
   <main>
 
-    <!-- KARŞILAMA -->
     <section id="home" class="hero">
       <div class="hero-content">
         <span class="hero-eyebrow">YENİ SEZON KOLEKSİYONU</span>
@@ -74,7 +71,6 @@
       </div>
     </section>
 
-    <!-- GÜVEN BİLGİLERİ -->
     <section class="benefits">
       <div>
         <span>✧</span>
@@ -95,7 +91,6 @@
       </div>
     </section>
 
-    <!-- KATEGORİLER -->
     <section id="categories" class="section">
       <div class="section-heading">
         <span>STİLİNİ KEŞFET</span>
@@ -106,7 +101,6 @@
       <div id="categoryList" class="category-list"></div>
     </section>
 
-    <!-- ÜRÜNLER -->
     <section id="products" class="section products-section">
       <div class="section-heading">
         <span>BUTİK ŞENAY KOLEKSİYONU</span>
@@ -128,7 +122,6 @@
       </div>
     </section>
 
-    <!-- HAKKIMIZDA -->
     <section id="about" class="section about-section">
       <div class="about-content">
         <span>BİZ KİMİZ?</span>
@@ -145,7 +138,6 @@
       </div>
     </section>
 
-    <!-- MÜŞTERİ YORUMLARI -->
     <section id="reviews" class="section reviews-section">
       <div class="section-heading">
         <span>MÜŞTERİLERİMİZİN GÖRÜŞLERİ</span>
@@ -193,7 +185,6 @@
       <div id="reviewList"></div>
     </section>
 
-    <!-- İLETİŞİM -->
     <section id="contact" class="section contact-section">
       <div class="section-heading">
         <span>BİZE ULAŞIN</span>
@@ -233,7 +224,6 @@
 
   </main>
 
-  <!-- ALT BİLGİ -->
   <footer class="store-footer">
     <a href="#home" class="footer-brand">BUTİK ŞENAY</a>
     <p>Şıklığın en güzel hali.</p>
@@ -249,7 +239,6 @@
     </p>
   </footer>
 
-  <!-- HESAP PENCERESİ -->
   <div id="accountModal" class="modal">
     <div class="modal-content">
       <button class="close-modal" data-close="accountModal" type="button">×</button>
@@ -285,7 +274,6 @@
     </div>
   </div>
 
-  <!-- SEPET PENCERESİ -->
   <div id="cartModal" class="modal">
     <div class="modal-content">
       <button class="close-modal" data-close="cartModal" type="button">×</button>
@@ -336,7 +324,6 @@
     </div>
   </div>
 
-  <!-- YÖNETİM PANELİ -->
   <div id="adminModal" class="modal">
     <div class="modal-content admin-content">
       <button class="close-modal" data-close="adminModal" type="button">×</button>
@@ -357,16 +344,13 @@
           <input id="productPrice" type="number" min="0" step="0.01" required>
 
           <label for="productCategory">Kategori</label>
-          <select id="productCategory" required>
-            <option value="">Kategori seçin</option>
-            <option value="Elbise">Elbise</option>
-            <option value="Üst Giyim">Üst Giyim</option>
-            <option value="Alt Giyim">Alt Giyim</option>
-            <option value="Ayakkabı">Ayakkabı</option>
-            <option value="Çanta">Çanta</option>
-            <option value="Aksesuar">Aksesuar</option>
-            <option value="Diğer">Diğer</option>
-          </select>
+          <input
+            id="productCategory"
+            type="text"
+            maxlength="60"
+            placeholder="Örn: Abiye, Tesettür, Takım..."
+            required
+          >
 
           <label for="productStock">Stok adedi</label>
           <input id="productStock" type="number" min="0" step="1" required>
