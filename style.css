@@ -9,6 +9,8 @@
   --white: #ffffff;
   --text: #38232d;
   --gray: #887780;
+  --border: #f0dce5;
+  --shadow: 0 8px 25px #a20f5818;
 }
 
 * {
@@ -25,20 +27,34 @@ body {
   font-family: 'Poppins', sans-serif;
   background: var(--white);
   color: var(--text);
+  line-height: 1.6;
 }
 
-button, input, textarea {
+button,
+input,
+textarea,
+select {
   font: inherit;
 }
 
 button {
   cursor: pointer;
   border: none;
+  transition: .2s ease;
+}
+
+button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
 }
 
 a {
   text-decoration: none;
   color: inherit;
+}
+
+img {
+  max-width: 100%;
 }
 
 /* ÜST MENÜ */
@@ -109,6 +125,12 @@ a {
   background: var(--pink);
   color: white;
   border-radius: 8px;
+}
+
+.header-buttons button:hover,
+.main-btn:hover,
+.contact button:hover {
+  background: var(--dark-pink);
 }
 
 /* ANA BANNER */
@@ -189,7 +211,8 @@ a {
   font-weight: 600;
 }
 
-.category-list button:hover {
+.category-list button:hover,
+.category-list button.active {
   background: var(--pink);
   color: white;
 }
@@ -209,13 +232,16 @@ a {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   padding: 13px;
   border: 1px solid #ead5df;
   border-radius: 9px;
   outline-color: var(--pink);
   margin-bottom: 12px;
+  background: white;
+  color: var(--text);
 }
 
 textarea {
@@ -225,12 +251,12 @@ textarea {
 
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 20px;
 }
 
 .product {
-  border: 1px solid #f0dce5;
+  border: 1px solid var(--border);
   border-radius: 14px;
   overflow: hidden;
   background: white;
@@ -239,7 +265,7 @@ textarea {
 
 .product:hover {
   transform: translateY(-5px);
-  box-shadow: 0 8px 25px #a20f5818;
+  box-shadow: var(--shadow);
 }
 
 .product img {
@@ -247,6 +273,7 @@ textarea {
   height: 260px;
   object-fit: cover;
   background: var(--light-pink);
+  display: block;
 }
 
 .product-info {
@@ -258,6 +285,12 @@ textarea {
   margin-bottom: 8px;
 }
 
+.product-info p {
+  color: var(--gray);
+  font-size: 13px;
+  margin: 7px 0;
+}
+
 .product-info button {
   width: 100%;
   padding: 12px;
@@ -267,9 +300,12 @@ textarea {
   color: white;
 }
 
+.product-info button:hover {
+  background: var(--dark-pink);
+}
+
 .product-info button:disabled {
   background: #aaa;
-  cursor: not-allowed;
 }
 
 .price {
@@ -342,6 +378,10 @@ textarea {
   font-weight: 700;
 }
 
+.social-links a:hover {
+  color: var(--gold);
+}
+
 /* ALT BÖLÜM */
 
 footer {
@@ -377,17 +417,20 @@ footer h2 {
 
 .modal-content {
   width: 100%;
-  max-width: 460px;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
   background: white;
   border-radius: 16px;
   padding: 25px;
   margin: auto;
+  box-shadow: 0 15px 50px #0002;
 }
 
 .modal-content h2,
 .modal-content h3 {
   color: var(--pink);
-  margin-bottom: 18px;
+  margin: 12px 0 18px;
 }
 
 .modal-content button:not(.close) {
@@ -398,6 +441,10 @@ footer h2 {
   margin-bottom: 10px;
 }
 
+.modal-content button:not(.close):hover {
+  background: var(--dark-pink);
+}
+
 .close {
   float: right;
   background: transparent;
@@ -405,9 +452,91 @@ footer h2 {
   font-size: 28px;
 }
 
+/* FOTOĞRAF YÜKLEME */
+
+label {
+  display: block;
+  margin: 12px 0 5px;
+  color: var(--pink);
+  font-weight: 600;
+  text-align: left;
+}
+
+input[type="file"] {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  margin: 10px 0 18px;
+  background: var(--light-pink);
+  border: 2px dashed #d9a4bd;
+  border-radius: 12px;
+  color: var(--pink);
+  cursor: pointer;
+}
+
+/* YÖNETİCİ PANELİ */
+
+.admin-product,
+.admin-message,
+.admin-order,
+.cart-item {
+  padding: 14px;
+  margin: 10px 0;
+  background: #fff7fa;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow-wrap: anywhere;
+}
+
+.admin-product p,
+.admin-message p,
+.admin-order p,
+.cart-item p {
+  margin: 5px 0;
+  color: var(--gray);
+  font-size: 13px;
+}
+
+.admin-product button,
+.admin-message button,
+.admin-order button {
+  margin: 8px 5px 0 0;
+}
+
+#addProductBtn,
+#checkoutBtn,
+#loginBtn,
+#signupBtn {
+  width: 100%;
+}
+
+/* BİLDİRİM */
+
+#toast {
+  display: none;
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  width: max-content;
+  max-width: 90%;
+  padding: 14px 22px;
+  background: var(--pink);
+  color: white;
+  border-radius: 12px;
+  box-shadow: 0 5px 20px #0002;
+  text-align: center;
+  font-size: 14px;
+}
+
 /* MOBİL UYUMLULUK */
 
-@media (max-width: 850px) {
+@media (max-width: 1000px) {
+  .product-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .header {
     flex-wrap: wrap;
   }
@@ -418,19 +547,26 @@ footer h2 {
     justify-content: center;
     flex-wrap: wrap;
   }
+}
 
+@media (max-width: 700px) {
   .product-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .product img {
     height: 210px;
+  }
+
+  .features {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 480px) {
   .header {
     padding: 12px;
+    gap: 12px;
   }
 
   .logo img {
@@ -442,8 +578,25 @@ footer h2 {
     font-size: 16px;
   }
 
+  .logo small {
+    font-size: 8px;
+  }
+
+  .header-buttons {
+    width: 100%;
+  }
+
   .header-buttons button {
+    flex: 1;
     padding: 9px;
+    font-size: 11px;
+  }
+
+  .header nav {
+    gap: 12px;
+  }
+
+  .header nav a {
     font-size: 11px;
   }
 
@@ -464,6 +617,13 @@ footer h2 {
     padding: 35px 15px;
   }
 
+  .categories h2,
+  .section-heading h2,
+  .about h2,
+  .contact h2 {
+    font-size: 27px;
+  }
+
   .product-grid {
     gap: 10px;
   }
@@ -472,12 +632,41 @@ footer h2 {
     height: 175px;
   }
 
-  .features {
-    grid-template-columns: 1fr;
+  .product-info {
+    padding: 10px;
+  }
+
+  .product-info h3 {
+    font-size: 14px;
+  }
+
+  .product-info p {
+    font-size: 11px;
+  }
+
+  .price {
+    font-size: 16px;
   }
 
   .section-heading {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .section-heading input {
+    max-width: 100%;
+  }
+
+  .modal {
+    padding: 10px;
+  }
+
+  .modal-content {
+    padding: 18px;
+  }
+
+  .admin-product button {
+    width: 100%;
+    margin-right: 0;
   }
 }
