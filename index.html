@@ -5,192 +5,183 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#a20f58">
-  <meta name="description" content="BUTİK ŞENAY - Kadın giyim, çanta ve aksesuar mağazası">
-  <title>BUTİK ŞENAY | Online Mağaza</title>
-
+  <title>BUTİK ŞENAY</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
 </head>
-
 <body>
 
-<header class="header">
-  <div class="logo">
-    <img src="assets/logo.jpg" alt="Butik Şenay">
-    <div>
-      <h2>BUTİK ŞENAY</h2>
-      <small>ŞIKLIĞIN EN GÜZEL HALİ</small>
-    </div>
-  </div>
-
+<header class="site-header">
+  <a class="brand" href="#">BUTİK ŞENAY</a>
   <nav>
-    <a href="#anasayfa">Ana Sayfa</a>
-    <a href="#urunler">Ürünler</a>
-    <a href="#hakkimizda">Hakkımızda</a>
-    <a href="#iletisim">İletişim</a>
+    <a href="#home">Ana Sayfa</a>
+    <a href="#products">Ürünler</a>
+    <a href="#reviews">Yorumlar</a>
+    <a href="#contact">İletişim</a>
   </nav>
-
-  <div class="header-buttons">
+  <div class="header-actions">
     <button id="accountBtn">Hesabım</button>
-    <button id="cartBtn">Sepet (<span id="cartCount">0</span>)</button>
+    <button id="cartBtn">Sepetim (<span id="cartCount">0</span>)</button>
+    <button id="adminBtn" hidden>Yönetim</button>
   </div>
 </header>
 
-<section class="hero" id="anasayfa">
-  <div class="hero-content">
-    <span>YENİ SEZON KOLEKSİYONU</span>
-    <h1>Zarafet Senin<br><em>Tarzın Olsun!</em></h1>
-    <p>En güzel kombinler ve özel tasarımlar BUTİK ŞENAY'da.</p>
-    <a href="#urunler" class="main-btn">ALIŞVERİŞE BAŞLA</a>
-  </div>
-</section>
-
-<section class="categories">
-  <h2>Kategorilerimiz</h2>
-
-  <div class="category-list">
-    <button data-category="">Tümü</button>
-    <button data-category="Elbise">Elbise</button>
-    <button data-category="Bluz">Bluz</button>
-    <button data-category="Pantolon">Pantolon</button>
-    <button data-category="Çanta">Çanta</button>
-    <button data-category="Ayakkabı">Ayakkabı</button>
-    <button data-category="Takı">Takı & Aksesuar</button>
-  </div>
-</section>
-
-<section class="products-section" id="urunler">
-  <div class="section-heading">
+<main>
+  <section id="home" class="hero">
     <div>
-      <span>KOLEKSİYONUMUZ</span>
-      <h2>Ürünlerimiz</h2>
+      <p>Şıklığın en güzel hali</p>
+      <h1>BUTİK ŞENAY</h1>
+      <a href="#products" class="primary-btn">Alışverişe Başla</a>
     </div>
+  </section>
 
-    <input type="search" id="searchInput" placeholder="Ürün ara...">
-  </div>
+  <section id="categories" class="section">
+    <h2>Kategoriler</h2>
+    <div id="categoryList"></div>
+  </section>
 
-  <div id="productList" class="product-grid">
-    <p>Ürünler yükleniyor...</p>
-  </div>
-</section>
+  <section id="products" class="section">
+    <h2>Ürünlerimiz</h2>
+    <input id="productSearch" type="search" placeholder="Ürün ara...">
+    <div id="productList" class="product-grid"></div>
+  </section>
 
-<section class="features">
-  <div>🚚<h3>Kolay Sipariş</h3><p>Kolayca sipariş oluştur.</p></div>
-  <div>💗<h3>Özenli Seçimler</h3><p>Tarzına uygun ürünler.</p></div>
-  <div>🔒<h3>Güvenli Üyelik</h3><p>Üyelik veya misafir alışveriş.</p></div>
-</section>
+  <section id="reviews" class="section">
+    <h2>Müşteri Yorumları</h2>
+    <p>Alışveriş deneyimini bizimle paylaş.</p>
 
-<section class="about" id="hakkimizda">
-  <h2>BUTİK ŞENAY</h2>
-  <p>Şıklığın, zarafetin ve tarzın buluştuğu adres.</p>
-</section>
+    <form id="reviewForm">
+      <label for="reviewName">Adın</label>
+      <input id="reviewName" type="text" placeholder="Adın" required>
 
-<section class="contact" id="iletisim">
-  <h2>Bize Ulaşın</h2>
-  <p>Sorularınızı bize iletebilirsiniz.</p>
+      <label for="reviewProduct">Ürün</label>
+      <select id="reviewProduct" required>
+        <option value="">Ürün seç</option>
+      </select>
 
-  <form id="messageForm">
-    <input id="messageName" placeholder="Adınız" required>
-    <input id="messageContact" placeholder="Telefon veya e-posta">
-    <textarea id="messageText" placeholder="Mesajınız..." required></textarea>
-    <button type="submit">Mesaj Gönder</button>
-  </form>
+      <label for="reviewRating">Puanın</label>
+      <select id="reviewRating" required>
+        <option value="5">★★★★★ - 5 yıldız</option>
+        <option value="4">★★★★ - 4 yıldız</option>
+        <option value="3">★★★ - 3 yıldız</option>
+        <option value="2">★★ - 2 yıldız</option>
+        <option value="1">★ - 1 yıldız</option>
+      </select>
 
-  <div class="social-links">
-    <a id="whatsappLink" href="#">WhatsApp</a>
-    <a id="instagramLink" href="#">Instagram</a>
-  </div>
-</section>
+      <label for="reviewText">Yorumun</label>
+      <textarea id="reviewText" rows="4" placeholder="Ürün hakkındaki düşüncelerin..." required></textarea>
 
-<footer>
-  <h2>BUTİK ŞENAY ♡</h2>
-  <p>© 2026 Tüm hakları saklıdır.</p>
-</footer>
+      <button type="submit" class="primary-btn">Yorum Gönder</button>
+      <p id="reviewStatus" role="status"></p>
+    </form>
 
-<!-- HESAP PENCERESİ -->
+    <div id="reviewList"></div>
+  </section>
+
+  <section id="about" class="section">
+    <h2>Hakkımızda</h2>
+    <p>BUTİK ŞENAY ile şıklığı ve zarafeti keşfet.</p>
+  </section>
+
+  <section id="contact" class="section">
+    <h2>İletişim</h2>
+    <form id="contactForm">
+      <input id="contactName" type="text" placeholder="Adınız" required>
+      <input id="contactEmail" type="email" placeholder="E-posta adresiniz">
+      <textarea id="contactMessage" placeholder="Mesajınız" required></textarea>
+      <button type="submit">Mesaj Gönder</button>
+    </form>
+    <div id="socialLinks"></div>
+  </section>
+</main>
+
 <div id="accountModal" class="modal">
   <div class="modal-content">
-    <button class="close" data-close="accountModal">×</button>
+    <button class="close-modal" data-close="accountModal">×</button>
     <h2>Hesabım</h2>
-
-    <input id="email" type="email" placeholder="E-posta adresin">
-    <input id="password" type="password" placeholder="Şifren">
-
-    <button id="loginBtn">Giriş Yap</button>
-    <button id="signupBtn">Üye Ol</button>
-
+    <form id="accountForm">
+      <input id="accountEmail" type="email" placeholder="E-posta" required>
+      <input id="accountPassword" type="password" placeholder="Şifre" required>
+      <button type="submit" id="loginBtn">Giriş Yap</button>
+      <button type="button" id="registerBtn">Kayıt Ol</button>
+    </form>
+    <button id="logoutBtn" hidden>Çıkış Yap</button>
     <p id="accountStatus"></p>
   </div>
 </div>
 
-<!-- SEPET -->
 <div id="cartModal" class="modal">
   <div class="modal-content">
-    <button class="close" data-close="cartModal">×</button>
+    <button class="close-modal" data-close="cartModal">×</button>
     <h2>Alışveriş Sepetim</h2>
-
     <div id="cartItems"></div>
-    <h3 id="cartTotal">Toplam: 0 TL</h3>
-
-    <input id="buyerName" placeholder="Ad Soyad">
-    <input id="buyerPhone" placeholder="Telefon">
-    <textarea id="buyerAddress" placeholder="Teslimat adresi"></textarea>
-
-    <button id="checkoutBtn">Sipariş Oluştur</button>
-    <p id="orderStatus"></p>
+    <p>Toplam: <strong id="cartTotal">0 TL</strong></p>
+    <form id="checkoutForm">
+      <input id="customerName" type="text" placeholder="Ad Soyad" required>
+      <input id="customerPhone" type="tel" placeholder="Telefon" required>
+      <textarea id="customerAddress" placeholder="Teslimat adresi" required></textarea>
+      <button type="submit">Siparişi Tamamla</button>
+    </form>
+    <p id="checkoutStatus"></p>
   </div>
 </div>
 
-<!-- SADECE KURUCU / ADMIN -->
 <div id="adminModal" class="modal">
-  <div class="modal-content">
-    <button class="close" data-close="adminModal">×</button>
-
-    <h2>👑 Kurucu Yönetim Paneli</h2>
+  <div class="modal-content admin-content">
+    <button class="close-modal" data-close="adminModal">×</button>
+    <h2>Yönetim Paneli</h2>
 
     <h3>Yeni Ürün Ekle</h3>
+    <form id="productForm">
+      <label for="productName">Ürün Adı</label>
+      <input id="productName" type="text" required>
 
-    <input id="productName" placeholder="Ürün adı">
-    <input id="productPrice" type="number" min="0" step="0.01" placeholder="Fiyat">
+      <label for="productPrice">Fiyat (TL)</label>
+      <input id="productPrice" type="number" min="0" step="0.01" required>
 
-    <select id="productCategory">
-      <option value="">Kategori seçin</option>
-      <option value="Elbise">Elbise</option>
-      <option value="Bluz">Bluz</option>
-      <option value="Pantolon">Pantolon</option>
-      <option value="Çanta">Çanta</option>
-      <option value="Ayakkabı">Ayakkabı</option>
-      <option value="Takı">Takı & Aksesuar</option>
-    </select>
+      <label for="productCategory">Kategori</label>
+      <select id="productCategory" required>
+        <option value="">Kategori seç</option>
+        <option value="Elbise">Elbise</option>
+        <option value="Üst Giyim">Üst Giyim</option>
+        <option value="Alt Giyim">Alt Giyim</option>
+        <option value="Ayakkabı">Ayakkabı</option>
+        <option value="Çanta">Çanta</option>
+        <option value="Aksesuar">Aksesuar</option>
+        <option value="Diğer">Diğer</option>
+      </select>
 
-    <input id="productStock" type="number" min="0" step="1" placeholder="Stok adedi">
+      <label for="productStock">Stok</label>
+      <input id="productStock" type="number" min="0" required>
 
-    <label for="productImage">Ürün Fotoğrafı</label>
-    <input
-      id="productImage"
-      type="file"
-      accept="image/jpeg,image/png,image/webp"
-    >
+      <label for="productImage">Ürün Fotoğrafı</label>
+      <input id="productImage" type="file" accept="image/jpeg,image/png,image/webp">
 
-    <textarea id="productDescription" placeholder="Ürün açıklaması"></textarea>
+      <label for="productDescription">Açıklama</label>
+      <textarea id="productDescription"></textarea>
 
-    <button id="addProductBtn">Ürün Yayınla</button>
+      <button type="submit" id="addProductBtn">Ürünü Kaydet</button>
+    </form>
 
     <h3>Ürün Yönetimi</h3>
     <div id="adminProductList"></div>
 
-    <h3>Müşteri Mesajları</h3>
-    <div id="adminMessages"></div>
-
     <h3>Siparişler</h3>
-    <div id="adminOrders"></div>
+    <div id="adminOrderList"></div>
+
+    <h3>Müşteri Mesajları</h3>
+    <div id="adminMessageList"></div>
+
+    <h3>Müşteri Yorumları</h3>
+    <div id="adminReviews"></div>
   </div>
 </div>
 
-<div id="toast"></div>
+<footer>
+  <p>© 2026 BUTİK ŞENAY - Tüm hakları saklıdır.</p>
+</footer>
 
-<script src="config.js"></script>
 <script src="app.js"></script>
-
 </body>
 </html>
