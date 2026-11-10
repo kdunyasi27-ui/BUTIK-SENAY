@@ -1,7 +1,9 @@
 
 /* =========================================
-   BUTİK ŞENAY - TAM MAĞAZA SİSTEMİ
+   BUTİK ŞENAY - MAĞAZA UYGULAMASI
    ========================================= */
+
+"use strict";
 
 const config = window.BUTIK_CONFIG || {};
 
@@ -59,6 +61,11 @@ function notify(message) {
   }, 3500);
 }
 
+function setStatus(id, message) {
+  const element = $(id);
+  if (element) element.textContent = message;
+}
+
 function openModal(id) {
   $(id)?.classList.add("show");
 }
@@ -73,7 +80,17 @@ document.querySelectorAll("[data-close]").forEach(button => {
   });
 });
 
-/* ÖRNEK ÜRÜNLER */
+document.querySelectorAll(".modal").forEach(modal => {
+  modal.addEventListener("click", event => {
+    if (event.target === modal) {
+      modal.classList.remove("show");
+    }
+  });
+});
+
+/* =========================================
+   DEMO ÜRÜNLER
+   ========================================= */
 
 const demoProducts = [
   {
@@ -83,7 +100,8 @@ const demoProducts = [
     price: 799,
     stock: 5,
     description: "Yeni sezon şık elbise.",
-    image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600"
+    image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600",
+    active: true
   },
   {
     id: "demo2",
@@ -92,7 +110,8 @@ const demoProducts = [
     price: 649,
     stock: 3,
     description: "Günlük kullanım için zarif çanta.",
-    image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=600"
+    image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=600",
+    active: true
   },
   {
     id: "demo3",
@@ -101,28 +120,38 @@ const demoProducts = [
     price: 499,
     stock: 0,
     description: "Rahat ve şık tasarım.",
-    image: "https://images.unsplash.com/photo-1564257577-7cadc2d23e63?w=600"
+    image: "https://images.unsplash.com/photo-1564257577-7cadc2d23e63?w=600",
+    active: true
   }
 ];
 
-/* KATEGORİLER */
+/* =========================================
+   KATEGORİLER
+   ========================================= */
 
 function renderCategories() {
   const container = $("categoryList");
   if (!container) return;
 
-  const categories = [...new Set(
-    products.map(product => product.category).filter(Boolean)
-  )];
+  const categories = [
+    ...new Set(products.map(p => p.category).filter(Boolean))
+  ];
 
   container.innerHTML = `
     <button type="button" data-category="">Tüm Ürünler</button>
-    ${categories.map(item => `
-      <button type="button" data-category="${escapeHTML(item)}">
-        ${escapeHTML(item)}
+    ${categories.map(category => `
+      <button type="button"
+        data-category="${escapeHTML(category)}"
+        class="${activeCategory === category ? "active" : ""}">
+        ${escapeHTML(category)}
       </button>
     `).join("")}
   `;
+
+  const allButton = container.querySelector('[data-category=""]');
+  if (allButton && !activeCategory) {
+    allButton.classList.add("active");
+  }
 }
 
 $("categoryList")?.addEventListener("click", event => {
@@ -134,7 +163,9 @@ $("categoryList")?.addEventListener("click", event => {
   renderProducts();
 });
 
-/* ÜRÜNLERİ YÜKLE */
+/* =========================================
+   ÜRÜNLERİ YÜKLE
+   ========================================= */
 
 async function loadProducts() {
   if (!db) {
@@ -165,9 +196,14 @@ async function loadProducts() {
   if (isAdmin) renderAdminProducts();
 }
 
-/* ÜRÜNLERİ GÖSTER */
+/* =========================================
+   ÜRÜNLERİ GÖSTER
+   ========================================= */
 
 function renderProducts() {
+  const container = $("productList");
+  if (!container) return;
+
   const search = ($("productSearch")?.value || "")
     .toLocaleLowerCase("tr");
 
@@ -175,15 +211,18 @@ function renderProducts() {
     const matchesCategory =
       !activeCategory || product.category === activeCategory;
 
-    const matchesSearch =
-      (product.name || "").toLocaleLowerCase("tr").includes(search);
+    const searchable = [
+      product.name,
+      product.category,
+      product.description
+    ].join(" ").toLocaleLowerCase("tr");
 
     return product.active !== false &&
       matchesCategory &&
-      matchesSearch;
+      searchable.includes(search);
   });
 
-  $("productList").innerHTML = filtered.length
+  container.innerHTML = filtered.length
     ? filtered.map(product => {
         const available = Number(product.stock) > 0;
 
@@ -193,6 +232,7 @@ function renderProducts() {
               src="${escapeHTML(product.image || "")}"
               alt="${escapeHTML(product.name)}"
               loading="lazy"
+              onerror="this.style.display='none'"
             >
 
             <div class="product-info">
@@ -203,14 +243,13 @@ function renderProducts() {
               <p>
                 ${available
                   ? "Stok: " + Number(product.stock)
-                  : "🔴 Stok Tükendi"}
+                  : "Stok Tükendi"}
               </p>
 
               <button
                 type="button"
                 data-add="${escapeHTML(product.id)}"
-                ${available ? "" : "disabled"}
-              >
+                ${available ? "" : "disabled"}>
                 ${available ? "Sepete Ekle" : "Tükendi"}
               </button>
             </div>
@@ -222,7 +261,9 @@ function renderProducts() {
 
 $("productSearch")?.addEventListener("input", renderProducts);
 
-/* SEPET */
+/* =========================================
+   SEPET
+   ========================================= */
 
 function addToCart(id) {
   const product = products.find(
@@ -247,23 +288,29 @@ function addToCart(id) {
 }
 
 function renderCart() {
-  $("cartCount").textContent = cart.length;
+  const count = $("cartCount");
+  const items = $("cartItems");
+  const totalElement = $("cartTotal");
 
-  $("cartItems").innerHTML = cart.length
-    ? cart.map((product, index) => `
-        <div class="cart-item">
-          <b>${escapeHTML(product.name)}</b>
-          <p>${money(product.price)}</p>
-          <button type="button" data-remove="${index}">Sil</button>
-        </div>
-      `).join("")
-    : "<p>Sepetiniz boş.</p>";
+  if (count) count.textContent = cart.length;
+
+  if (items) {
+    items.innerHTML = cart.length
+      ? cart.map((product, index) => `
+          <div class="cart-item">
+            <b>${escapeHTML(product.name)}</b>
+            <p>${money(product.price)}</p>
+            <button type="button" data-remove="${index}">Sil</button>
+          </div>
+        `).join("")
+      : "<p>Sepetiniz boş.</p>";
+  }
 
   const total = cart.reduce(
     (sum, item) => sum + Number(item.price), 0
   );
 
-  $("cartTotal").textContent = money(total);
+  if (totalElement) totalElement.textContent = money(total);
 }
 
 document.addEventListener("click", event => {
@@ -283,7 +330,9 @@ $("cartBtn")?.addEventListener("click", () => {
   openModal("cartModal");
 });
 
-/* HESAP */
+/* =========================================
+   MÜŞTERİ HESABI
+   ========================================= */
 
 $("accountBtn")?.addEventListener("click", () => {
   if (isAdmin) {
@@ -297,7 +346,9 @@ $("accountBtn")?.addEventListener("click", () => {
 $("accountForm")?.addEventListener("submit", async event => {
   event.preventDefault();
 
-  if (!db) return notify("Supabase bağlantısı henüz yapılmadı.");
+  if (!db) {
+    return notify("Hesap sistemi henüz bağlanmadı.");
+  }
 
   const email = $("accountEmail").value.trim();
   const password = $("accountPassword").value;
@@ -308,7 +359,7 @@ $("accountForm")?.addEventListener("submit", async event => {
   });
 
   if (error) {
-    $("accountStatus").textContent = error.message;
+    setStatus("accountStatus", error.message);
     return;
   }
 
@@ -318,13 +369,15 @@ $("accountForm")?.addEventListener("submit", async event => {
 });
 
 $("registerBtn")?.addEventListener("click", async () => {
-  if (!db) return notify("Supabase bağlantısı henüz yapılmadı.");
+  if (!db) {
+    return notify("Hesap sistemi henüz bağlanmadı.");
+  }
 
   const email = $("accountEmail").value.trim();
   const password = $("accountPassword").value;
 
-  if (password.length < 6) {
-    return notify("Şifre en az 6 karakter olmalı.");
+  if (!email || password.length < 6) {
+    return notify("E-posta girin. Şifre en az 6 karakter olmalı.");
   }
 
   const { error } = await db.auth.signUp({
@@ -332,9 +385,12 @@ $("registerBtn")?.addEventListener("click", async () => {
     password
   });
 
-  $("accountStatus").textContent = error
-    ? error.message
-    : "Kayıt oluşturuldu. E-postanı kontrol et.";
+  setStatus(
+    "accountStatus",
+    error
+      ? error.message
+      : "Kayıt oluşturuldu. E-posta onayı gerekiyorsa gelen kutunu kontrol et."
+  );
 });
 
 $("logoutBtn")?.addEventListener("click", async () => {
@@ -350,7 +406,11 @@ $("logoutBtn")?.addEventListener("click", async () => {
 });
 
 async function checkAccount() {
-  if (!db) return;
+  if (!db) {
+    currentUser = null;
+    isAdmin = false;
+    return;
+  }
 
   const { data, error } = await db.auth.getUser();
 
@@ -367,11 +427,15 @@ async function checkAccount() {
     isAdmin = result.data?.role === "admin";
   }
 
-  $("accountBtn").textContent =
-    isAdmin ? "Yönetici Paneli" : "Hesabım";
+  if ($("accountBtn")) {
+    $("accountBtn").textContent =
+      isAdmin ? "Yönetici Paneli" : "Hesabım";
+  }
 
-  $("adminBtn").hidden = !isAdmin;
-  $("logoutBtn").hidden = !currentUser;
+  if ($("adminBtn")) $("adminBtn").hidden = !isAdmin;
+  if ($("logoutBtn")) $("logoutBtn").hidden = !currentUser;
+
+  if (isAdmin) renderAdminProducts();
 }
 
 $("adminBtn")?.addEventListener("click", () => {
@@ -381,7 +445,9 @@ $("adminBtn")?.addEventListener("click", () => {
   loadAdminData();
 });
 
-/* FOTOĞRAF YÜKLEME */
+/* =========================================
+   FOTOĞRAF YÜKLEME
+   ========================================= */
 
 async function uploadProductImage(file) {
   if (!db) throw new Error("Supabase bağlantısı yok.");
@@ -397,8 +463,12 @@ async function uploadProductImage(file) {
     throw new Error("Fotoğraf en fazla 5 MB olabilir.");
   }
 
-  const extension = file.type.split("/")[1].replace("jpeg", "jpg");
-  const path = "products/" + crypto.randomUUID() + "." + extension;
+  const extension = file.type === "image/jpeg"
+    ? "jpg"
+    : file.type.split("/")[1];
+
+  const path =
+    "products/" + crypto.randomUUID() + "." + extension;
 
   const { error } = await db.storage
     .from("product-images")
@@ -417,7 +487,9 @@ async function uploadProductImage(file) {
   return data.publicUrl;
 }
 
-/* ÜRÜN EKLE */
+/* =========================================
+   ÜRÜN EKLE / DÜZENLE
+   ========================================= */
 
 $("productForm")?.addEventListener("submit", async event => {
   event.preventDefault();
@@ -434,69 +506,131 @@ $("productForm")?.addEventListener("submit", async event => {
   const stock = Number($("productStock").value);
   const description = $("productDescription").value.trim();
   const file = $("productImage").files[0];
+  const editId = $("productForm").dataset.editId;
 
-  if (!name || !category || !description || !file) {
-    return notify("Ürün bilgilerini ve fotoğrafı doldurun.");
+  if (!name || !category) {
+    return notify("Ürün adı ve kategorisi gerekli.");
   }
 
-  if (!Number.isFinite(price) || price <= 0 ||
+  if (!Number.isFinite(price) || price < 0 ||
       !Number.isInteger(stock) || stock < 0) {
     return notify("Fiyat veya stok bilgisi geçersiz.");
   }
 
+  if (!editId && !file) {
+    return notify("Yeni ürün için fotoğraf seçin.");
+  }
+
   uploading = true;
-  $("addProductBtn").disabled = true;
-  $("addProductBtn").textContent = "Yükleniyor...";
+
+  const button = $("addProductBtn");
+  button.disabled = true;
+  button.textContent = "Kaydediliyor...";
 
   try {
-    const image = await uploadProductImage(file);
+    let image = "";
 
-    const { error } = await db.from("products").insert({
+    if (file) {
+      image = await uploadProductImage(file);
+    }
+
+    const payload = {
       name,
       price,
       category,
       stock,
-      description,
-      image,
-      active: true
-    });
+      description
+    };
 
-    if (error) throw error;
+    if (image) payload.image = image;
+
+    let result;
+
+    if (editId) {
+      result = await db.from("products")
+        .update(payload)
+        .eq("id", editId);
+    } else {
+      payload.active = true;
+      result = await db.from("products").insert(payload);
+    }
+
+    if (result.error) throw result.error;
 
     $("productForm").reset();
+    delete $("productForm").dataset.editId;
+    button.textContent = "ÜRÜNÜ KAYDET";
+
     await loadProducts();
     await loadAdminData();
 
-    notify("Ürün başarıyla eklendi.");
+    notify(editId ? "Ürün güncellendi." : "Ürün eklendi.");
 
   } catch (error) {
     console.error(error);
-    notify("Ürün eklenemedi: " + error.message);
+    notify("İşlem başarısız: " + error.message);
 
   } finally {
     uploading = false;
-    $("addProductBtn").disabled = false;
-    $("addProductBtn").textContent = "Ürünü Kaydet";
+    button.disabled = false;
+    if (!button.textContent.includes("KAYDET")) {
+      button.textContent = "ÜRÜNÜ KAYDET";
+    }
   }
 });
 
-/* YÖNETİCİ ÜRÜNLERİ */
-
 function renderAdminProducts() {
-  $("adminProductList").innerHTML = products.length
+  const container = $("adminProductList");
+  if (!container) return;
+
+  container.innerHTML = products.length
     ? products.map(product => `
         <div class="admin-product">
           <b>${escapeHTML(product.name)}</b>
           <p>${money(product.price)} · Stok: ${product.stock}</p>
-          <button type="button" data-stock="${escapeHTML(product.id)}">
+
+          <button type="button"
+            data-edit-product="${escapeHTML(product.id)}">
+            Düzenle
+          </button>
+
+          <button type="button"
+            data-stock="${escapeHTML(product.id)}">
             Stok Güncelle
           </button>
-          <button type="button" data-delete="${escapeHTML(product.id)}">
+
+          <button type="button"
+            data-delete="${escapeHTML(product.id)}">
             Ürünü Sil
           </button>
         </div>
       `).join("")
     : "<p>Henüz ürün yok.</p>";
+}
+
+function editProduct(id) {
+  if (!isAdmin) return;
+
+  const product = products.find(
+    item => String(item.id) === String(id)
+  );
+
+  if (!product) return;
+
+  $("productName").value = product.name;
+  $("productPrice").value = product.price;
+  $("productCategory").value = product.category;
+  $("productStock").value = product.stock;
+  $("productDescription").value = product.description || "";
+  $("productImage").value = "";
+
+  $("productForm").dataset.editId = product.id;
+  $("addProductBtn").textContent = "ÜRÜNÜ GÜNCELLE";
+
+  $("productForm").scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
 }
 
 async function updateStock(id) {
@@ -512,7 +646,8 @@ async function updateStock(id) {
   }
 
   const { error } = await db.from("products")
-    .update({ stock }).eq("id", id);
+    .update({ stock })
+    .eq("id", id);
 
   if (error) return notify(error.message);
 
@@ -525,25 +660,31 @@ async function deleteProduct(id) {
   if (!confirm("Bu ürün silinsin mi?")) return;
 
   const { error } = await db.from("products")
-    .delete().eq("id", id);
+    .delete()
+    .eq("id", id);
 
   if (error) return notify(error.message);
 
   cart = cart.filter(item => String(item.id) !== String(id));
   renderCart();
+
   await loadProducts();
   notify("Ürün silindi.");
 }
 
 document.addEventListener("click", event => {
+  const edit = event.target.closest("[data-edit-product]");
   const stock = event.target.closest("[data-stock]");
   const remove = event.target.closest("[data-delete]");
 
+  if (edit) editProduct(edit.dataset.editProduct);
   if (stock) updateStock(stock.dataset.stock);
   if (remove) deleteProduct(remove.dataset.delete);
 });
 
-/* SİPARİŞ */
+/* =========================================
+   SİPARİŞ OLUŞTURMA
+   ========================================= */
 
 $("checkoutForm")?.addEventListener("submit", async event => {
   event.preventDefault();
@@ -571,6 +712,7 @@ $("checkoutForm")?.addEventListener("submit", async event => {
 
   const button = $("checkoutForm").querySelector('[type="submit"]');
   button.disabled = true;
+  button.textContent = "Sipariş gönderiliyor...";
 
   try {
     const { data, error } = await db.rpc("place_order", {
@@ -595,10 +737,13 @@ $("checkoutForm")?.addEventListener("submit", async event => {
 
   } finally {
     button.disabled = false;
+    button.textContent = "SİPARİŞİ TAMAMLA";
   }
 });
 
-/* İLETİŞİM */
+/* =========================================
+   İLETİŞİM MESAJLARI
+   ========================================= */
 
 $("contactForm")?.addEventListener("submit", async event => {
   event.preventDefault();
@@ -608,6 +753,10 @@ $("contactForm")?.addEventListener("submit", async event => {
   const name = $("contactName").value.trim();
   const email = $("contactEmail").value.trim();
   const message = $("contactMessage").value.trim();
+
+  if (!name || !message) {
+    return notify("Adınızı ve mesajınızı yazın.");
+  }
 
   const { error } = await db.from("messages").insert({
     name,
@@ -624,28 +773,33 @@ $("contactForm")?.addEventListener("submit", async event => {
   notify("Mesajınız gönderildi.");
 });
 
-/* YORUMLAR */
+/* =========================================
+   YORUMLAR
+   ========================================= */
 
 function updateReviewProducts() {
   const select = $("reviewProduct");
   if (!select) return;
 
   select.innerHTML =
-    '<option value="">Ürün seç</option>' +
-    products.map(product => `
-      <option value="${escapeHTML(product.id)}">
-        ${escapeHTML(product.name)}
-      </option>
-    `).join("");
+    '<option value="">Ürün seçin</option>' +
+    products
+      .filter(product => product.active !== false)
+      .map(product => `
+        <option value="${escapeHTML(product.id)}">
+          ${escapeHTML(product.name)}
+        </option>
+      `).join("");
 }
 
 $("reviewForm")?.addEventListener("submit", async event => {
   event.preventDefault();
 
   if (!db) {
-    $("reviewStatus").textContent =
-      "Yorum sistemi henüz bağlanmadı.";
-    return;
+    return setStatus(
+      "reviewStatus",
+      "Yorum sistemi henüz bağlanmadı."
+    );
   }
 
   const customerName = $("reviewName").value.trim();
@@ -655,8 +809,7 @@ $("reviewForm")?.addEventListener("submit", async event => {
 
   if (!customerName || !productId || !comment ||
       !Number.isInteger(rating) || rating < 1 || rating > 5) {
-    $("reviewStatus").textContent = "Tüm alanları kontrol edin.";
-    return;
+    return setStatus("reviewStatus", "Bilgileri kontrol edin.");
   }
 
   const { error } = await db.from("reviews").insert({
@@ -669,22 +822,26 @@ $("reviewForm")?.addEventListener("submit", async event => {
 
   if (error) {
     console.error(error);
-    $("reviewStatus").textContent =
-      "Yorum gönderilemedi: " + error.message;
-    return;
+    return setStatus(
+      "reviewStatus",
+      "Yorum gönderilemedi: " + error.message
+    );
   }
 
   $("reviewForm").reset();
-  $("reviewStatus").textContent =
-    "Yorumun gönderildi. Yönetici onayından sonra yayınlanacak.";
 
-  await loadReviews();
+  setStatus(
+    "reviewStatus",
+    "Yorumunuz gönderildi. Yönetici onayından sonra yayınlanacak."
+  );
 });
 
 async function loadReviews() {
+  const container = $("reviewList");
+  if (!container) return;
+
   if (!db) {
-    $("reviewList").innerHTML =
-      "<p>Yorumlar veritabanı bağlandıktan sonra görüntülenecek.</p>";
+    container.innerHTML = "<p>Yorumlar veritabanı bağlandığında gösterilecek.</p>";
     return;
   }
 
@@ -696,11 +853,11 @@ async function loadReviews() {
 
   if (error) {
     console.error(error);
-    $("reviewList").textContent = "Yorumlar yüklenemedi.";
+    container.textContent = "Yorumlar yüklenemedi.";
     return;
   }
 
-  $("reviewList").innerHTML = (data || []).length
+  container.innerHTML = (data || []).length
     ? data.map(review => `
         <article class="review-card">
           <h3>${escapeHTML(review.customer_name)}</h3>
@@ -715,7 +872,9 @@ async function loadReviews() {
     : "<p>Henüz onaylanmış yorum yok.</p>";
 }
 
-/* YÖNETİCİ VERİLERİ */
+/* =========================================
+   YÖNETİCİ PANELİ
+   ========================================= */
 
 async function loadAdminData() {
   if (!db || !isAdmin) return;
@@ -734,6 +893,10 @@ async function loadAdminData() {
           <b>${escapeHTML(item.name)}</b>
           <p>${escapeHTML(item.contact || "")}</p>
           <p>${escapeHTML(item.message)}</p>
+          <button type="button"
+            data-delete-message="${escapeHTML(item.id)}">
+            Mesajı Sil
+          </button>
         </div>
       `).join("") || "Henüz mesaj yok.";
 
@@ -747,17 +910,77 @@ async function loadAdminData() {
     : (orders || []).map(item => `
         <div class="admin-order">
           <b>${escapeHTML(item.customer_name)}</b>
+          <p>Sipariş: ${escapeHTML(item.id)}</p>
           <p>Telefon: ${escapeHTML(item.phone)}</p>
           <p>Adres: ${escapeHTML(item.address)}</p>
           <p>Toplam: ${money(item.total)}</p>
           <p>Durum: ${escapeHTML(item.status)}</p>
+
+          <select data-order-status="${escapeHTML(item.id)}">
+            <option value="">Durumu değiştir</option>
+            <option value="Yeni">Yeni</option>
+            <option value="Hazırlanıyor">Hazırlanıyor</option>
+            <option value="Kargoya Verildi">Kargoya Verildi</option>
+            <option value="Tamamlandı">Tamamlandı</option>
+            <option value="İptal Edildi">İptal Edildi</option>
+          </select>
+
+          <button type="button"
+            data-update-order="${escapeHTML(item.id)}">
+            Durumu Kaydet
+          </button>
         </div>
       `).join("") || "Henüz sipariş yok.";
 
   await loadAdminReviews();
 }
 
-/* YÖNETİCİ YORUM ONAYI */
+/* =========================================
+   SİPARİŞ DURUMU GÜNCELLE
+   ========================================= */
+
+async function updateOrderStatus(id) {
+  if (!db || !isAdmin) return;
+
+  const select = document.querySelector(
+    `[data-order-status="${CSS.escape(id)}"]`
+  );
+
+  const status = select?.value;
+
+  if (!status) return notify("Önce sipariş durumu seçin.");
+
+  const { error } = await db.from("orders")
+    .update({ status })
+    .eq("id", id);
+
+  if (error) return notify("Sipariş güncellenemedi: " + error.message);
+
+  await loadAdminData();
+  notify("Sipariş durumu güncellendi.");
+}
+
+/* =========================================
+   MESAJ SİL
+   ========================================= */
+
+async function deleteMessage(id) {
+  if (!db || !isAdmin) return;
+  if (!confirm("Bu mesaj silinsin mi?")) return;
+
+  const { error } = await db.from("messages")
+    .delete()
+    .eq("id", id);
+
+  if (error) return notify(error.message);
+
+  await loadAdminData();
+  notify("Mesaj silindi.");
+}
+
+/* =========================================
+   YÖNETİCİ YORUM YÖNETİMİ
+   ========================================= */
 
 async function loadAdminReviews() {
   const container = $("adminReviews");
@@ -781,12 +1004,14 @@ async function loadAdminReviews() {
           <p>${"★".repeat(Number(review.rating))}</p>
           <p>${escapeHTML(review.comment)}</p>
           <p>Durum: ${review.approved ? "Onaylandı" : "Onay bekliyor"}</p>
+
           ${review.approved ? "" : `
             <button type="button"
               data-approve-review="${escapeHTML(review.id)}">
               Yorumu Onayla
             </button>
           `}
+
           <button type="button"
             data-delete-review="${escapeHTML(review.id)}">
             Yorumu Sil
@@ -796,30 +1021,36 @@ async function loadAdminReviews() {
     : "Henüz yorum yok.";
 }
 
-document.addEventListener("click", async event => {
-  const approve = event.target.closest("[data-approve-review]");
-  const remove = event.target.closest("[data-delete-review]");
+/* =========================================
+   YÖNETİCİ İŞLEMLERİ
+   ========================================= */
 
+document.addEventListener("click", async event => {
   if (!db || !isAdmin) return;
+
+  const approve = event.target.closest("[data-approve-review]");
+  const deleteReview = event.target.closest("[data-delete-review]");
+  const deleteMsg = event.target.closest("[data-delete-message]");
+  const updateOrder = event.target.closest("[data-update-order]");
 
   if (approve) {
     const { error } = await db.from("reviews")
       .update({ approved: true })
       .eq("id", approve.dataset.approveReview);
 
-    if (error) return notify("Yorum onaylanamadı.");
+    if (error) return notify("Yorum onaylanamadı: " + error.message);
 
     await loadAdminReviews();
     await loadReviews();
     notify("Yorum yayınlandı.");
   }
 
-  if (remove) {
+  if (deleteReview) {
     if (!confirm("Bu yorum silinsin mi?")) return;
 
     const { error } = await db.from("reviews")
       .delete()
-      .eq("id", remove.dataset.deleteReview);
+      .eq("id", deleteReview.dataset.deleteReview);
 
     if (error) return notify("Yorum silinemedi.");
 
@@ -827,9 +1058,19 @@ document.addEventListener("click", async event => {
     await loadReviews();
     notify("Yorum silindi.");
   }
+
+  if (deleteMsg) {
+    await deleteMessage(deleteMsg.dataset.deleteMessage);
+  }
+
+  if (updateOrder) {
+    await updateOrderStatus(updateOrder.dataset.updateOrder);
+  }
 });
 
-/* SOSYAL MEDYA */
+/* =========================================
+   SOSYAL MEDYA
+   ========================================= */
 
 function loadContactLinks() {
   const social = $("socialLinks");
@@ -840,30 +1081,44 @@ function loadContactLinks() {
 
   social.innerHTML = `
     ${instagram
-      ? `<a href="https://instagram.com/${encodeURIComponent(instagram)}" target="_blank" rel="noopener">Instagram</a>`
+      ? `<a href="https://instagram.com/${encodeURIComponent(instagram)}"
+          target="_blank" rel="noopener">Instagram</a>`
       : ""}
     ${whatsapp
-      ? `<a href="https://wa.me/${whatsapp}" target="_blank" rel="noopener">WhatsApp</a>`
+      ? `<a href="https://wa.me/${whatsapp}"
+          target="_blank" rel="noopener">WhatsApp</a>`
       : ""}
   `;
 }
 
-/* OTURUM TAKİBİ */
+/* =========================================
+   OTURUM TAKİBİ
+   ========================================= */
 
 if (db) {
   db.auth.onAuthStateChange(() => {
-    setTimeout(checkAccount, 0);
+    setTimeout(() => {
+      checkAccount().then(() => {
+        if (isAdmin) loadAdminData();
+      });
+    }, 0);
   });
 }
 
-/* BAŞLAT */
+/* =========================================
+   UYGULAMAYI BAŞLAT
+   ========================================= */
 
 async function start() {
   loadContactLinks();
+  renderCart();
+
   await checkAccount();
   await loadProducts();
   await loadReviews();
-  renderCart();
 }
 
-start();
+start().catch(error => {
+  console.error("BUTİK ŞENAY başlatma hatası:", error);
+  notify("Mağaza açılırken bir hata oluştu.");
+});
